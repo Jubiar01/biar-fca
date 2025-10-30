@@ -16,8 +16,8 @@ const allowedProperties = {
 
 module.exports = (defaultFuncs, api, ctx) => {
   async function uploadAttachment(attachments) {
-    var uploads = [];
-    for (var i = 0; i < attachments.length; i++) {
+    const uploads = [];
+    for (let i = 0; i < attachments.length; i++) {
      if (!utils.isReadableStream(attachments[i])) {
         throw new Error("Attachment should be a readable stream and not " + utils.getType(attachments[i]) + ".");
      }
@@ -51,7 +51,7 @@ module.exports = (defaultFuncs, api, ctx) => {
     // 2. User is sending a message to a specific user.
     // 3. No additional form params and the message goes to an existing group chat.
     if (utils.getType(threadID) === "Array") {
-      for (var i = 0; i < threadID.length; i++) {
+      for (let i = 0; i < threadID.length; i++) {
         form["specific_to_list[" + i + "]"] = "fbid:" + threadID[i];
       }
       form["specific_to_list[" + threadID.length + "]"] = "fbid:" + ctx.userID;
@@ -98,21 +98,21 @@ module.exports = (defaultFuncs, api, ctx) => {
   }
 
   return async (msg, threadID, replyToMessage, isSingleUser = false) => {
-    let msgType = utils.getType(msg);
-    let threadIDType = utils.getType(threadID);
-    let messageIDType = utils.getType(replyToMessage);
+    const msgType = utils.getType(msg);
+    const threadIDType = utils.getType(threadID);
+    const messageIDType = utils.getType(replyToMessage);
     if (msgType !== "String" && msgType !== "Object") throw new Error("Message should be of type string or object and not " + msgType + ".");
     if (threadIDType !== "Array" && threadIDType !== "Number" && threadIDType !== "String") throw new Error("ThreadID should be of type number, string, or array and not " + threadIDType + ".");
     if (replyToMessage && messageIDType !== 'String') throw new Error("MessageID should be of type string and not " + threadIDType + ".");
     if (msgType === "String") {
       msg = { body: msg };
     }
-    let disallowedProperties = Object.keys(msg).filter(prop => !allowedProperties[prop]);
+    const disallowedProperties = Object.keys(msg).filter(prop => !allowedProperties[prop]);
     if (disallowedProperties.length > 0) {
       throw new Error("Dissallowed props: `" + disallowedProperties.join(", ") + "`");
     }
-    let messageAndOTID = utils.generateOfflineThreadingID();
-    let form = {
+    const messageAndOTID = utils.generateOfflineThreadingID();
+    const form = {
       client: "mercury",
       action_type: "ma-type:user-generated-message",
       author: "fbid:" + ctx.userID,

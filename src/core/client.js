@@ -5,7 +5,7 @@ const setOptionsModel = require('./models/setOptions');
 const buildAPIModel = require('./models/buildAPI');
 const loginHelperModel = require('./models/loginHelper');
 
-let globalOptions = {};
+const globalOptions = {};
 let ctx = null;
 let defaultFuncs = null;
 let api = null;

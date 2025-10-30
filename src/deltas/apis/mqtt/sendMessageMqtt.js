@@ -11,12 +11,12 @@ module.exports = (defaultFuncs, api, ctx) => {
    */
   function uploadAttachment(attachments, callback) {
     callback = callback || function () {};
-    var uploads = [];
-    for (var i = 0; i < attachments.length; i++) {
+    const uploads = [];
+    for (let i = 0; i < attachments.length; i++) {
       if (!utils.isReadableStream(attachments[i])) {
         throw { error: "Attachment should be a readable stream and not " + utils.getType(attachments[i]) + "." };
       }
-      var form = {
+      const form = {
         upload_1024: attachments[i],
         voice_clip: "true",
       };
@@ -42,7 +42,7 @@ module.exports = (defaultFuncs, api, ctx) => {
     const isString = typeof msg === 'string';
     const body = isString ? msg : msg.body || "";
     otid = otid.toString() || utils.generateOfflineThreadingID().toString();
-    let payload = {
+    const payload = {
       thread_id: threadID.toString(),
       otid,
       source: 0,
@@ -98,7 +98,7 @@ module.exports = (defaultFuncs, api, ctx) => {
 
     let resolveFunc = () => {};
     let rejectFunc = () => {};
-    let returnPromise = new Promise((resolve, reject) => {
+    const returnPromise = new Promise((resolve, reject) => {
       resolveFunc = resolve;
       rejectFunc = reject;
     });

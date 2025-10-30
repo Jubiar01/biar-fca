@@ -162,7 +162,7 @@ module.exports = function(defaultFuncs, api, ctx) {
             return cb(error);
         }
 
-        let messageObject = typeof msg === 'string' ? { body: msg } : { ...msg };
+        const messageObject = typeof msg === 'string' ? { body: msg } : { ...msg };
         messageObject.mentions = messageObject.mentions || [];
         messageObject.attachments = messageObject.attachments || [];
         

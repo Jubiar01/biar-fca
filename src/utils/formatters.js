@@ -777,7 +777,7 @@ function formatDeltaMessage(m) {
 
                                                 if (!obj) return newObj;
 
-                                                for (var prop in obj) {
+                                                for (const prop in obj) {
                                                     if (obj.hasOwnProperty(prop)) {
                                                         if (!newObj[prop])
                                                             newObj[prop] = obj[prop];
@@ -795,8 +795,8 @@ function formatDeltaMessage(m) {
                                         }
 
                                         function parseAndCheckLogin(ctx, http, retryCount) {
-                                            var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-                                            var _try = (tryData) => new Promise(function(resolve, reject) {
+                                            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+                                            const _try = (tryData) => new Promise(function(resolve, reject) {
                                                 try {
                                                     resolve(tryData());
                                                 } catch (error) {

@@ -56,7 +56,7 @@ async function buildAPI(html, jar, netData, globalOptions, fbLinkFunc, errorRetr
     const currentUserData = findConfig("CurrentUserInitialData");
     const userAppID = currentUserData ? currentUserData.APP_ID : undefined;
 
-    let primaryAppID = userAppID || mqttAppID;
+    const primaryAppID = userAppID || mqttAppID;
 
     let mqttEndpoint = mqttConfigData ? mqttConfigData.endpoint : undefined;
 

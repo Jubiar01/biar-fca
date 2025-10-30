@@ -9,7 +9,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
     if (ctx.globalOptions.pageID && ctx.globalOptions.pageID != v.queue) return;
     (function resolveAttachmentUrl(i) {
       if (v.delta.attachments && (i == v.delta.attachments.length)) {
-        var fmtMsg;
+        let fmtMsg;
         try {
           fmtMsg = utils.formatDeltaMessage(v);
         } catch (err) {
@@ -45,9 +45,9 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
   }
 
   if (v.delta.class == "ClientPayload") {
-    var clientPayload = utils.decodeClientPayload(v.delta.payload);
+    const clientPayload = utils.decodeClientPayload(v.delta.payload);
     if (clientPayload && clientPayload.deltas) {
-      for (var i in clientPayload.deltas) {
+      for (const i in clientPayload.deltas) {
         var delta = clientPayload.deltas[i];
        // console.log(delta);
         if (delta.deltaMessageReaction && !!ctx.globalOptions.listenEvents) {
@@ -69,20 +69,20 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
               timestamp: delta.deltaRecallMessageData.timestamp
             });
         } else if (delta.deltaMessageReply) {
-          var mdata = delta.deltaMessageReply.message?.data?.prng ? JSON.parse(delta.deltaMessageReply.message.data.prng) : [];
+          const mdata = delta.deltaMessageReply.message?.data?.prng ? JSON.parse(delta.deltaMessageReply.message.data.prng) : [];
           var mentions = {};
           if (mdata) {
             mdata.forEach(m => mentions[m.i] = (delta.deltaMessageReply.message.body || "").substring(m.o, m.o + m.l));
           }
           
-          var callbackToReturn = {
+          const callbackToReturn = {
             type: "message_reply",
             threadID: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId || delta.deltaMessageReply.message.messageMetadata.threadKey.otherUserFbId).toString(),
             messageID: delta.deltaMessageReply.message.messageMetadata.messageId,
             senderID: delta.deltaMessageReply.message.messageMetadata.actorFbId.toString(),
             attachments: delta.deltaMessageReply.message.attachments.map(att => {
               try {
-                var mercury = JSON.parse(att.mercuryJSON);
+                const mercury = JSON.parse(att.mercuryJSON);
                 Object.assign(att, mercury);
                 return utils._formatAttachment(att);
               } catch (ex) {
@@ -98,7 +98,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
 
           if (delta.deltaMessageReply.repliedToMessage) {
             var rmentions = {};
-            var rmdata = delta.deltaMessageReply.repliedToMessage?.data?.prng ? JSON.parse(delta.deltaMessageReply.repliedToMessage.data.prng) : [];
+            const rmdata = delta.deltaMessageReply.repliedToMessage?.data?.prng ? JSON.parse(delta.deltaMessageReply.repliedToMessage.data.prng) : [];
             if (rmdata) {
                 rmdata.forEach(m => rmentions[m.i] = (delta.deltaMessageReply.repliedToMessage.body || "").substring(m.o, m.o + m.l));
             }
@@ -109,7 +109,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
               senderID: delta.deltaMessageReply.repliedToMessage.messageMetadata.actorFbId.toString(),
               attachments: delta.deltaMessageReply.repliedToMessage.attachments.map(att => {
                  try {
-                    var mercury = JSON.parse(att.mercuryJSON);
+                    const mercury = JSON.parse(att.mercuryJSON);
                     Object.assign(att, mercury);
                     return utils._formatAttachment(att);
                   } catch (ex) {
