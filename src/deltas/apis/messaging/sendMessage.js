@@ -89,7 +89,7 @@ module.exports = (defaultFuncs, api, ctx) => {
       if (resData.error === 1545012) {
         utils.warn("sendMessage", "Got error 1545012. This might mean that you're not part of the conversation " + threadID);
       }
-      throw new Error(resData);
+      throw new Error(`Send message failed with error code ${resData.error}: ${JSON.stringify(resData)}`);
     }
     const messageInfo = resData.payload.actions.reduce((p, v) => {
         return { threadID: v.thread_fbid, messageID: v.message_id, timestamp: v.timestamp } || p;
@@ -97,15 +97,42 @@ module.exports = (defaultFuncs, api, ctx) => {
     return messageInfo;
   }
 
-  return async (msg, threadID, replyToMessage, isSingleUser = false) => {
+  return async (msg, threadID, replyToMessage, isSingleUser) => {
     const msgType = utils.getType(msg);
     const threadIDType = utils.getType(threadID);
     const messageIDType = utils.getType(replyToMessage);
     if (msgType !== "String" && msgType !== "Object") throw new Error("Message should be of type string or object and not " + msgType + ".");
     if (threadIDType !== "Array" && threadIDType !== "Number" && threadIDType !== "String") throw new Error("ThreadID should be of type number, string, or array and not " + threadIDType + ".");
-    if (replyToMessage && messageIDType !== 'String') throw new Error("MessageID should be of type string and not " + threadIDType + ".");
+    if (replyToMessage && messageIDType !== 'String') throw new Error("MessageID should be of type string and not " + messageIDType + ".");
     if (msgType === "String") {
       msg = { body: msg };
+    }
+    
+    // Auto-detect if it's a single user chat when not explicitly specified
+    if (isSingleUser === undefined || isSingleUser === null) {
+      // Check if we have thread type info cached
+      if (!ctx.threadTypeCache) {
+        ctx.threadTypeCache = {};
+      }
+      
+      // If we have cached info, use it
+      if (ctx.threadTypeCache[threadID] !== undefined) {
+        isSingleUser = !ctx.threadTypeCache[threadID]; // true if not a group
+      } else {
+        // Try to get thread info to determine type
+        try {
+          const threadInfo = await api.getThreadInfo(threadID);
+          const isGroup = threadInfo.isGroup || threadInfo.threadType === 2;
+          ctx.threadTypeCache[threadID] = isGroup;
+          isSingleUser = !isGroup;
+        } catch (err) {
+          // If we can't get thread info, default to single user for personal chats
+          // Groups usually have longer numeric IDs
+          const threadIDStr = threadID.toString();
+          isSingleUser = threadIDStr.length < 16;
+          utils.warn("sendMessage", "Could not determine thread type, guessing based on ID length");
+        }
+      }
     }
     const disallowedProperties = Object.keys(msg).filter(prop => !allowedProperties[prop]);
     if (disallowedProperties.length > 0) {

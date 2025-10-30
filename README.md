@@ -76,6 +76,45 @@ npm i ws3-fca@latest
 
 ---
 
+## 🛡️ Anti-Detection Bots
+
+This repository includes **TWO advanced bot implementations** with different anti-detection strategies:
+
+### 🐌 `login_safe.js` - Human Behavior Simulation
+**Strategy**: Mimics human typing and reading patterns
+- ✅ Typing delays (200-300 chars/min)
+- ✅ Reading time simulation
+- ✅ Sleep hours (11PM-7AM)
+- ✅ Random typos (3% chance)
+- ✅ Activity scheduling (peak/slow hours)
+- ⏱️ Response time: 2-10 seconds
+
+**Use when**: Maximum safety is priority, you can tolerate delays
+
+```bash
+node login_safe.js
+```
+
+### ⚡ `login_instant.js` - Technical Obfuscation
+**Strategy**: Advanced cryptographic and traffic obfuscation
+- 🔐 Session fingerprint management (6hr rotation)
+- 🎭 Multi-layer request obfuscation
+- 🔀 Adaptive pattern diffusion
+- 🛡️ Traffic analysis resistance
+- 📊 Real-time account health monitoring
+- 🔒 MQTT traffic obfuscation
+- ⏱️ Response time: 50-200ms (instant)
+
+**Use when**: You need speed + protection without human simulation
+
+```bash
+node login_instant.js
+```
+
+📖 **Full comparison**: See [ANTI_DETECTION_GUIDE.md](ANTI_DETECTION_GUIDE.md)
+
+---
+
 ## 🚀 Getting Started
 
 ### 1. Generate `appstate.json`

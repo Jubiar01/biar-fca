@@ -20,7 +20,13 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
             type: "parse_error"
           });
         }
+        
         if (fmtMsg) {
+            // Cache thread type information for sendMessage
+            if (!ctx.threadTypeCache) {
+              ctx.threadTypeCache = {};
+            }
+            ctx.threadTypeCache[fmtMsg.threadID] = fmtMsg.isGroup || false;
             
             if (ctx.globalOptions.autoMarkDelivery) api.markAsDelivered(fmtMsg.threadID, fmtMsg.messageID);
         }
@@ -95,6 +101,12 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
             timestamp: delta.deltaMessageReply.message.messageMetadata.timestamp,
             participantIDs: (delta.deltaMessageReply.message.participants || []).map(e => e.toString())
           };
+          
+          // Cache thread type information for sendMessage
+          if (!ctx.threadTypeCache) {
+            ctx.threadTypeCache = {};
+          }
+          ctx.threadTypeCache[callbackToReturn.threadID] = callbackToReturn.isGroup || false;
 
           if (delta.deltaMessageReply.repliedToMessage) {
             const rmentions = {};

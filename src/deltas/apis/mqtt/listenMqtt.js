@@ -321,6 +321,9 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 // Parse message payload
                 const jsonMessage = JSON.parse(message.toString());
 
+                // Debug logging (disabled by default)
+                // console.log("Topic:", topic, "| Deltas:", jsonMessage.deltas?.length || 0);
+                
                 // Handle different message types based on topic
                 if (topic === "/t_ms") {
                     // Update sequence ID if provided
@@ -338,6 +341,17 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                             }
                         }
                     }
+                } else if (topic === "/mercury" || topic === "/messaging_events" || topic === "/orca_message_notifications") {
+                    // Handle messages from other topics (often personal messages)
+                    if (jsonMessage.deltas && Array.isArray(jsonMessage.deltas)) {
+                        for (const delta of jsonMessage.deltas) {
+                            try {
+                                parseDelta(defaultFuncs, api, ctx, globalCallback, { delta });
+                            } catch (deltaErr) {
+                                utils.error("Error parsing delta from " + topic + ":", deltaErr);
+                            }
+                        }
+                    }
                 } else if (topic === "/thread_typing" || topic === "/orca_typing_notifications") {
                     // Handle typing indicators
                     const typingEvent = {
@@ -351,6 +365,8 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     };
                     globalCallback(null, typingEvent);
                 }
+                // Uncomment for debugging unhandled topics:
+                // else { console.log("Unhandled topic:", topic); }
             } catch (parseErr) {
                 utils.error(`Error processing message from topic ${topic}:`, parseErr);
             }
