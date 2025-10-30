@@ -48,7 +48,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
     const clientPayload = utils.decodeClientPayload(v.delta.payload);
     if (clientPayload && clientPayload.deltas) {
       for (const i in clientPayload.deltas) {
-        var delta = clientPayload.deltas[i];
+        const delta = clientPayload.deltas[i];
        // console.log(delta);
         if (delta.deltaMessageReaction && !!ctx.globalOptions.listenEvents) {
             globalCallback(null, {
@@ -70,7 +70,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
             });
         } else if (delta.deltaMessageReply) {
           const mdata = delta.deltaMessageReply.message?.data?.prng ? JSON.parse(delta.deltaMessageReply.message.data.prng) : [];
-          var mentions = {};
+          const mentions = {};
           if (mdata) {
             mdata.forEach(m => mentions[m.i] = (delta.deltaMessageReply.message.body || "").substring(m.o, m.o + m.l));
           }
@@ -97,7 +97,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
           };
 
           if (delta.deltaMessageReply.repliedToMessage) {
-            var rmentions = {};
+            const rmentions = {};
             const rmdata = delta.deltaMessageReply.repliedToMessage?.data?.prng ? JSON.parse(delta.deltaMessageReply.repliedToMessage.data.prng) : [];
             if (rmdata) {
                 rmdata.forEach(m => rmentions[m.i] = (delta.deltaMessageReply.repliedToMessage.body || "").substring(m.o, m.o + m.l));
@@ -135,7 +135,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
   if (v.delta.class !== "NewMessage" && !ctx.globalOptions.listenEvents) return;
   switch (v.delta.class) {
     case "ReadReceipt":
-      var fmtMsg;
+      let fmtMsg;
       try {
         fmtMsg = utils.formatDeltaReadReceipt(v.delta);
       } catch (err) {
@@ -146,7 +146,7 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
     case "ThreadName":
     case "ParticipantsAddedToGroupThread":
     case "ParticipantLeftGroupThread":
-      var fmtEvent;
+      let fmtEvent;
       try {
         fmtEvent = utils.formatDeltaEvent(v.delta);
       } catch (err) {

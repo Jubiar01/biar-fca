@@ -318,15 +318,15 @@ function _formatAttachment(attachment1, attachment2) {
                                                                 spriteURI2x: blob.sprite_image_2x
                                                     };
         case "MessageLocation":
-                                                                var urlAttach = blob.story_attachment.url;
-                                                                var mediaAttach = blob.story_attachment.media;
+                                                                const urlAttach = blob.story_attachment.url;
+                                                                const mediaAttach = blob.story_attachment.media;
 
-                                                                var u = querystring.parse(url.parse(urlAttach).query).u;
-                                                                var where1 = querystring.parse(url.parse(u).query).where1;
-                                                                var address = where1.split(", ");
+                                                                const u = querystring.parse(url.parse(urlAttach).query).u;
+                                                                const where1 = querystring.parse(url.parse(u).query).where1;
+                                                                const address = where1.split(", ");
 
-                                                                var latitude;
-                                                                var longitude;
+                                                                let latitude;
+                                                                let longitude;
 
                                                                 try {
                                                                     latitude = Number.parseFloat(address[0]);
@@ -334,9 +334,9 @@ function _formatAttachment(attachment1, attachment2) {
                                                                 } catch (err) {
                                                                     /* empty */
                                                                 }
-                                                                var imageUrl;
-                                                                var width;
-                                                                var height;
+                                                                let imageUrl;
+                                                                let width;
+                                                                let height;
                                                                 if (mediaAttach && mediaAttach.image) {
                                                                     imageUrl = mediaAttach.image.uri;
                                                                     width = mediaAttach.image.width;
@@ -731,7 +731,7 @@ function formatDeltaMessage(m) {
                                                 return "[" + maybeMultipleObjects.join("},{") + "]";
                                             }
 
-                                            function arrToForm(form) {
+                                            function _arrToForm(form) {
                                                 return arrayToObject(
                                                     form,
                                                     function(v) {
@@ -750,16 +750,16 @@ function formatDeltaMessage(m) {
                                                 }, {});
                                             }
 
-                                            function getSignatureID() {
+                                            function _getSignatureID() {
                                                 return Math.floor(Math.random() * 2147483648).toString(16);
                                             }
 
-                                            function generateTimestampRelative() {
+                                            function _generateTimestampRelative() {
                                                 const d = new Date();
                                                 return d.getHours() + ":" + padZeros(d.getMinutes());
                                             }
 
-                                            function makeDefaults(html, userID, ctx) {
+                                            function _makeDefaults(html, userID, ctx) {
                                                 let reqCounter = 1;
                                                 const revision = getFrom(html, 'revision":', ",");
                                                 function mergeWithDefaults(obj) {
@@ -794,7 +794,7 @@ function formatDeltaMessage(m) {
                                             };
                                         }
 
-                                        function parseAndCheckLogin(ctx, http, retryCount) {
+                                        function _parseAndCheckLogin(ctx, http, retryCount) {
                                             const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
                                             const _try = (tryData) => new Promise(function(resolve, reject) {
                                                 try {
@@ -895,7 +895,7 @@ function formatDeltaMessage(m) {
                                 };
                         }
 
-                        function saveCookies(jar) {
+                        function _saveCookies(jar) {
                             return function(res) {
                                 const cookies = res.headers["set-cookie"] || [];
                                 cookies.forEach(function(c) {

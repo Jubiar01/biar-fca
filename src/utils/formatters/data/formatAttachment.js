@@ -1,10 +1,10 @@
 "use strict";
 
-const url = require("url");
-const querystring = require("querystring");
-const { getType } = require("../../constants");
+// const url = require("url");
+// const querystring = require("querystring");
+// const { getType } = require("../../constants");
 
-function getExtension(original_extension, fullFileName = "") {
+function _getExtension(original_extension, fullFileName = "") {
     if (original_extension) {
         return original_extension;
     } else {
@@ -46,7 +46,7 @@ function _formatAttachment(attachment1, attachment2) {
         };
     }
 
-    attachment2 = attachment2 || { id: "", image_data: {} };
+    const _attachment2 = attachment2 || { id: "", image_data: {} };
     attachment1 = attachment1.mercury || attachment1;
     let blob = attachment1.blob_attachment || attachment1.sticker_attachment;
     let type = blob && blob.__typename ? blob.__typename : attachment1.attach_type;

@@ -30,7 +30,8 @@ module.exports = function(defaultFuncs, api, ctx) {
         
         if (typeof callback === 'function') cb = callback;
         if (!postID) {
-            return cb({ error: "A postID is required to generate a preview." });
+            cb({ error: "A postID is required to generate a preview." });
+            return returnPromise;
         }
 
         const variables = {
@@ -51,10 +52,10 @@ module.exports = function(defaultFuncs, api, ctx) {
                 .then(utils.parseAndCheckLogin(ctx, defaultFuncs));
             
             const result = formatPreviewResult(resData);
-            return cb(null, result);
+            cb(null, result);
         } catch (err) {
             utils.error("getPostPreview", err);
-            return cb(err);
+            cb(err);
         }
 
         return returnPromise;

@@ -125,7 +125,7 @@ module.exports = (defaultFuncs, api, ctx) => {
     };
   }
 
-  return function getUserInfo(id, usePayload, callback, groupFields = []) {
+  return function getUserInfo(id, usePayload, callback, _groupFields = []) {
     let resolveFunc = () => {};
     let rejectFunc = () => {};
     const returnPromise = new Promise((resolve, reject) => {

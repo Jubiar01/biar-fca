@@ -157,7 +157,9 @@ module.exports = function(defaultFuncs, api, ctx) {
                 doc_id: '29237828849196584'
             };
             let res = await makeRequest(initialForm);
-            let { packs, page_info, store_id } = formatPackList(res);
+            const firstResult = formatPackList(res);
+            const { packs, store_id } = firstResult;
+            let page_info = firstResult.page_info;
             allPacks.push(...packs);
             utils.log(`Fetched first page with ${packs.length} packs.`);
 

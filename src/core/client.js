@@ -6,9 +6,9 @@ const buildAPIModel = require('./models/buildAPI');
 const loginHelperModel = require('./models/loginHelper');
 
 const globalOptions = {};
-let ctx = null;
-let defaultFuncs = null;
 let api = null;
+let _ctx = null;
+let _defaultFuncs = null;
 
 const fbLink = (ext) => ("https://www.facebook.com" + (ext ? '/' + ext : ''));
 const ERROR_RETRIEVING = "Error retrieving userID. This can be caused by many factors, including being blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.";
@@ -54,8 +54,8 @@ async function login(credentials, options, callback) {
                 return callback(loginError);
             }
             api = loginApi;
-            ctx = loginApi.ctx;
-            defaultFuncs = loginApi.defaultFuncs;
+            _ctx = loginApi.ctx;
+            _defaultFuncs = loginApi.defaultFuncs;
             return callback(null, loginApi);
         },
         setOptionsModel,

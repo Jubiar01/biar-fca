@@ -44,7 +44,7 @@ module.exports = (defaultFuncs, api, ctx) => {
     }
   }
 
-  async function sendContent(form, threadID, isSingleUser, messageAndOTID, callback) {
+  async function sendContent(form, threadID, isSingleUser, messageAndOTID, _callback) {
     // There are three cases here:
     // 1. threadID is of type array, where we're starting a new group chat with users
     //    specified in the array.

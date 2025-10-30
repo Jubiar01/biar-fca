@@ -6,7 +6,7 @@
 //fixed march 30
 const utils = require('../../../utils');
 
-function canBeCalled(func) {
+function _canBeCalled(func) {
     try {
         Reflect.apply(func, null, []);
         return true;
@@ -23,7 +23,7 @@ function canBeCalled(func) {
 */
 
 module.exports = function (defaultFuncs, api, ctx) {
-    return function editMessage(text, messageID, callback) {
+    return function editMessage(text, messageID, _callback) {
         if (!ctx.mqttClient) {
             throw new Error('Not connected to MQTT');
         }
