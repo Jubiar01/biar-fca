@@ -1,5 +1,46 @@
-node_modules
-appstate.json
-test.js
+# Dependencies
+node_modules/
 package-lock.json
+
+# Credentials & Sensitive Data
+appstate.json
 fb_dtsg_data.json
+*.env
+.env
+.env.*
+
+# Testing
+test.js
+tests/**/*.log
+coverage/
+.nyc_output/
+
+# Build & Docs
+dist/
+build/
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp

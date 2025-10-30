@@ -1,0 +1,16 @@
+{
+  "all": true,
+  "check-coverage": false,
+  "reporter": ["text", "html", "lcov"],
+  "include": ["src/**/*.js", "module/**/*.js"],
+  "exclude": [
+    "tests/**",
+    "node_modules/**",
+    "**/*.test.js",
+    "**/*.spec.js"
+  ],
+  "cache": true,
+  "sourceMap": false,
+  "instrument": true
+}
+

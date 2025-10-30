@@ -26,7 +26,7 @@ module.exports = (defaultFuncs, api, ctx) => {
        voice_clip: "true"
      }, {}).then(utils.parseAndCheckLogin(ctx, defaultFuncs));
      if (oksir.error) {
-       throw new Error(resData);
+       throw new Error(oksir.error);
      }
      uploads.push(oksir.payload.metadata[0]);
     }
@@ -185,8 +185,8 @@ module.exports = (defaultFuncs, api, ctx) => {
       if (msg.emojiSize !== "small" && msg.emojiSize !== "medium" && msg.emojiSize !== "large") {
         throw new Error("emojiSize property is invalid");
       }
-      if (!form.body) {
-        throw new Error("body is not empty");
+      if (form.body) {
+        throw new Error("body must be empty when using emoji");
       }
       form.body = msg.emoji;
       form["tags[0]"] = "hot_emoji_size:" + msg.emojiSize;
