@@ -4,7 +4,8 @@ const { CookieJar } = require('tough-cookie');
 const { wrapper: axiosCookieJarSupport } = require('axios-cookiejar-support');
 
 const BASE_FB_MOBILE_URL = 'https://m.facebook.com';
-const DEFAULT_TIMEOUT = 45000;
+const BASE_FB_DESKTOP_URL = 'https://www.facebook.com';
+const DEFAULT_TIMEOUT = 60000;
 
 // ==========================================
 // ANTI-DETECTION v3.0 - Stealth Mode
@@ -246,44 +247,66 @@ module.exports = {
 
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Try multiple registration URLs
+            // Try multiple registration URLs with different approaches
             const regUrls = [
-                BASE_FB_MOBILE_URL + '/reg/',
-                BASE_FB_MOBILE_URL + '/r.php',
-                BASE_FB_MOBILE_URL + '/reg/index.php',
+                // Mobile URLs (usually easier)
+                { url: BASE_FB_MOBILE_URL + '/reg/', base: BASE_FB_MOBILE_URL },
+                { url: BASE_FB_MOBILE_URL + '/r.php', base: BASE_FB_MOBILE_URL },
+                { url: BASE_FB_MOBILE_URL + '/reg/index.php', base: BASE_FB_MOBILE_URL },
+                // Desktop URLs (fallback)
+                { url: BASE_FB_DESKTOP_URL + '/r.php', base: BASE_FB_DESKTOP_URL },
+                { url: BASE_FB_DESKTOP_URL + '/reg/', base: BASE_FB_DESKTOP_URL },
+                // Alternative mobile approach
+                { url: 'https://mbasic.facebook.com/reg/', base: 'https://mbasic.facebook.com' },
             ];
 
             let regPageResponse = null;
             let responseData = null;
+            let successUrl = '';
 
-            for (const regUrl of regUrls) {
+            for (const { url, base } of regUrls) {
                 try {
-                    console.log(`🔍 Trying: ${regUrl}`);
+                    console.log(`🔍 Trying: ${url}`);
                     
-                    const response = await session.get(regUrl, {
-                        headers: getCleanHeaders(BASE_FB_MOBILE_URL + '/')
+                    const response = await session.get(url, {
+                        headers: getCleanHeaders(base + '/'),
+                        maxRedirects: 5,
+                        validateStatus: (status) => status >= 200 && status < 400
                     });
 
-                    if (response && response.status === 200 && response.data) {
-                        regPageResponse = response;
-                        responseData = response.data;
-                        console.log(`✅ Success: ${regUrl}`);
-                        break;
+                    if (response && response.data && 
+                        (typeof response.data === 'string' && response.data.length > 1000)) {
+                        
+                        // Verify it's actually a registration page
+                        const hasRegForm = response.data.includes('reg_email') || 
+                                          response.data.includes('firstname') ||
+                                          response.data.includes('Sign Up') ||
+                                          response.data.includes('Create');
+                        
+                        if (hasRegForm) {
+                            regPageResponse = response;
+                            responseData = response.data;
+                            successUrl = url;
+                            console.log(`✅ Success: ${url}`);
+                            break;
+                        } else {
+                            console.log(`⚠️ Page loaded but no registration form: ${url}`);
+                        }
                     }
                 } catch (err) {
-                    console.log(`❌ Failed: ${regUrl} - ${err.message}`);
-                    if (regUrl === regUrls[regUrls.length - 1]) {
-                        throw new Error('All registration URLs failed. Try using a proxy.');
-                    }
+                    console.log(`❌ Failed: ${url} - ${err.message}`);
+                    
+                    // Add delay between attempts
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     continue;
                 }
             }
 
             if (!regPageResponse || !responseData) {
-                throw new Error('Cannot access registration page. Use a proxy or VPN.');
+                throw new Error('Cannot access Facebook registration page. Facebook is blocking your IP. Use a residential proxy to continue.');
             }
 
-            console.log('✅ Registration page loaded');
+            console.log(`✅ Registration page loaded from: ${successUrl}`);
 
             const formData = extractFormDataV2(responseData);
 
@@ -334,46 +357,56 @@ module.exports = {
 
             await new Promise(resolve => setTimeout(resolve, 1000));
             
+            // Determine the base URL from successful registration page load
+            const baseUrl = successUrl.includes('mbasic') ? 'https://mbasic.facebook.com' :
+                           successUrl.includes('www') ? BASE_FB_DESKTOP_URL : 
+                           BASE_FB_MOBILE_URL;
+            
             const submitEndpoints = [
+                baseUrl + '/reg/submit/',
+                baseUrl + '/ajax/register.php',
                 BASE_FB_MOBILE_URL + '/reg/submit/',
-                BASE_FB_MOBILE_URL + '/ajax/register.php',
+                BASE_FB_DESKTOP_URL + '/r.php',
             ];
 
             let submitResponse = null;
             let responseText = '';
             let finalUrl = '';
-            let usedRegUrl = regPageResponse.config?.url || BASE_FB_MOBILE_URL + '/reg/';
 
             for (const endpoint of submitEndpoints) {
                 try {
                     console.log(`🚀 Submitting to: ${endpoint}`);
                     
+                    const originUrl = new URL(endpoint).origin;
+                    
                     submitResponse = await session.post(endpoint, payload.toString(), {
                         headers: {
-                            ...getCleanHeaders(usedRegUrl),
+                            ...getCleanHeaders(successUrl),
                             'Content-Type': 'application/x-www-form-urlencoded',
-                            'Origin': BASE_FB_MOBILE_URL,
+                            'Origin': originUrl,
                         },
-                        timeout: 60000
+                        maxRedirects: 10,
+                        timeout: 60000,
+                        validateStatus: (status) => status >= 200 && status < 600
                     });
 
                     if (submitResponse && submitResponse.data) {
                         responseText = (typeof submitResponse.data === 'string') ? submitResponse.data : JSON.stringify(submitResponse.data);
                         finalUrl = submitResponse.request?.res?.responseUrl || endpoint;
-                        console.log(`✅ Success: ${endpoint}`);
+                        console.log(`✅ Success: ${endpoint} (Status: ${submitResponse.status})`);
                         break;
                     }
                 } catch (err) {
                     console.log(`❌ Failed: ${endpoint} - ${err.message}`);
-                    if (endpoint === submitEndpoints[submitEndpoints.length - 1]) {
-                        throw new Error('Registration submission failed: ' + err.message);
-                    }
+                    
+                    // Continue trying other endpoints
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     continue;
                 }
             }
 
-            if (!submitResponse) {
-                throw new Error('No response from Facebook - registration failed');
+            if (!submitResponse || !responseText) {
+                throw new Error('Registration submission failed - no response from Facebook. Try using a different proxy or network.');
             }
 
             console.log('✅ Registration submitted, checking result...');
@@ -456,7 +489,17 @@ module.exports = {
             api.sendMessage(resultMessage, threadID);
 
         } catch (error) {
-            console.error('FB Account Creation Error:', error);
+            console.error('='.repeat(60));
+            console.error('FB ACCOUNT CREATION ERROR - FULL DETAILS:');
+            console.error('='.repeat(60));
+            console.error('Email:', email);
+            console.error('Name:', `${genName.firstName} ${genName.lastName}`);
+            console.error('Password:', genPassword);
+            console.error('Proxy:', proxyString || 'None');
+            console.error('Error Type:', error.name);
+            console.error('Error Message:', error.message);
+            console.error('Stack Trace:', error.stack);
+            console.error('='.repeat(60));
             
             let errorMessage = `💥 ACCOUNT CREATION ERROR!\n\n` +
                 `📧 Email: ${email}\n` +
@@ -465,43 +508,55 @@ module.exports = {
                 `❌ Error: ${error.message}\n\n`;
             
             // Add helpful suggestions based on error type
-            if (error.message.includes('blocking') || error.message.includes('registration URLs failed') || error.message.includes('Cannot access')) {
-                errorMessage += `🛡️ FACEBOOK IS BLOCKING ACCESS!\n\n` +
-                    `💡 Solutions (in order of effectiveness):\n` +
-                    `1. USE A RESIDENTIAL PROXY:\n` +
+            if (error.message.includes('blocking') || error.message.includes('Cannot access') || error.message.includes('registration page')) {
+                errorMessage += `🛡️ FACEBOOK IS BLOCKING YOUR IP!\n\n` +
+                    `💡 Solutions (Try in order):\n\n` +
+                    `1️⃣ USE A RESIDENTIAL PROXY (Best):\n` +
                     `   fbcreate ${email} IP:PORT:USER:PASS\n\n` +
-                    `2. Use a quality VPN (NordVPN, ExpressVPN)\n\n` +
-                    `3. Try from mobile hotspot/different network\n\n` +
-                    `4. Wait 30-60 minutes and retry\n\n` +
-                    `📝 Credentials saved above - account may have been partially created`;
+                    `2️⃣ Use a quality VPN:\n` +
+                    `   • NordVPN, ExpressVPN, or SurfShark\n` +
+                    `   • Connect BEFORE running command\n\n` +
+                    `3️⃣ Try mobile hotspot/different network\n\n` +
+                    `4️⃣ Wait 30-60 minutes and retry\n\n` +
+                    `📊 Check full error logs:\n` +
+                    `${process.env.VERCEL ? '• Vercel: https://vercel.com/dashboard > Logs\n' : ''}` +
+                    `${process.env.RENDER ? '• Render: Dashboard > Logs tab\n' : ''}` +
+                    `• Or run locally to see console output\n\n` +
+                    `📝 Credentials saved above`;
             } else if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
                 errorMessage += `💡 NETWORK TIMEOUT!\n\n` +
                     `Solutions:\n` +
-                    `• Check your internet connection speed\n` +
-                    `• Try with a faster/different proxy\n` +
+                    `• Your connection is too slow\n` +
+                    `• Try with a faster proxy\n` +
+                    `• Increase timeout (contact admin)\n` +
                     `• Retry the command\n\n` +
                     `📝 Credentials saved above`;
-            } else if (error.message.includes('connect') || error.message.includes('ECONNREFUSED')) {
+            } else if (error.message.includes('connect') || error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
                 errorMessage += `💡 CONNECTION FAILED!\n\n` +
                     `Solutions:\n` +
                     `• Check internet connection\n` +
-                    `• Verify proxy is working (if using one)\n` +
-                    `• Try different network/proxy\n` +
-                    `• Facebook may be temporarily down\n\n` +
+                    `• If using proxy: verify it's working\n` +
+                    `• Try different proxy/network\n` +
+                    `• Facebook may be down (check downdetector.com)\n\n` +
                     `📝 Credentials saved above`;
             } else if (error.message.includes('form data') || error.message.includes('page structure')) {
-                errorMessage += `💡 FACEBOOK UPDATED THEIR SYSTEM!\n\n` +
+                errorMessage += `💡 FACEBOOK UPDATED THEIR PAGE!\n\n` +
                     `Solutions:\n` +
-                    `• Try using a proxy from different region\n` +
-                    `• Wait a few hours and retry\n` +
-                    `• Report this to bot admin for update\n\n` +
+                    `• Facebook changed their registration form\n` +
+                    `• Try using proxy from different country\n` +
+                    `• Report to bot admin for script update\n` +
+                    `• Check GitHub for updates\n\n` +
                     `📝 Credentials saved above`;
             } else {
-                errorMessage += `💡 GENERAL TROUBLESHOOTING:\n` +
-                    `• Use a residential proxy (HIGHLY recommended)\n` +
-                    `• Try from different IP/network/location\n` +
-                    `• Wait 15-30 minutes and retry\n` +
-                    `• Use a different email address\n\n` +
+                errorMessage += `💡 GENERAL TROUBLESHOOTING:\n\n` +
+                    `1. Use RESIDENTIAL proxy (not datacenter)\n` +
+                    `2. Try different IP/network/country\n` +
+                    `3. Wait 30-60 minutes and retry\n` +
+                    `4. Use different email address\n` +
+                    `5. Check logs for more details:\n` +
+                    `${process.env.VERCEL ? '   • Vercel: Dashboard > Logs\n' : ''}` +
+                    `${process.env.RENDER ? '   • Render: Dashboard > Logs\n' : ''}` +
+                    `   • Or run locally with: node server.js\n\n` +
                     `📝 Credentials saved above`;
             }
             
