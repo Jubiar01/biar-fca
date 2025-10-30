@@ -42,6 +42,106 @@ const fakePassword = (length = 12) => {
 
 const getProfileUrl = (uid) => `https://www.facebook.com/profile.php?id=${uid}`;
 
+const submitConfirmationCode = async (session, code, email) => {
+    try {
+        // Try to find confirmation page
+        const checkpointUrls = [
+            BASE_FB_MOBILE_URL + '/checkpoint/',
+            BASE_FB_MOBILE_URL + '/confirmation/',
+            BASE_FB_MOBILE_URL + '/confirmemail.php'
+        ];
+
+        let confirmPageHtml = '';
+        for (const url of checkpointUrls) {
+            try {
+                const response = await session.get(url);
+                if (response.status === 200 && response.data) {
+                    confirmPageHtml = response.data;
+                    break;
+                }
+            } catch (err) {
+                continue;
+            }
+        }
+
+        if (!confirmPageHtml) {
+            throw new Error('Could not find confirmation page');
+        }
+
+        const formData = extractFormDataV2(confirmPageHtml);
+        const payload = new URLSearchParams();
+        
+        payload.append('code', code);
+        payload.append('email', email);
+        payload.append('submit[Submit Code]', 'Submit Code');
+        payload.append('fb_dtsg', formData.fb_dtsg || '');
+        payload.append('jazoest', formData.jazoest || '');
+        if (formData.lsd) payload.append('lsd', formData.lsd);
+
+        const confirmResponse = await session.post(
+            BASE_FB_MOBILE_URL + '/confirmemail.php',
+            payload.toString(),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Referer': BASE_FB_MOBILE_URL + '/checkpoint/',
+                }
+            }
+        );
+
+        return confirmResponse;
+    } catch (error) {
+        throw new Error(`Confirmation failed: ${error.message}`);
+    }
+};
+
+const testLogin = async (email, password, proxyString = null) => {
+    try {
+        const userAgentString = generateUserAgent();
+        const session = createAxiosSession(userAgentString, proxyString);
+
+        // Get login page
+        const loginPage = await session.get(BASE_FB_MOBILE_URL + '/login/');
+        const formData = extractFormDataV2(loginPage.data);
+
+        // Prepare login payload
+        const payload = new URLSearchParams();
+        payload.append('email', email);
+        payload.append('pass', password);
+        payload.append('login', 'Log In');
+        payload.append('fb_dtsg', formData.fb_dtsg || '');
+        payload.append('jazoest', formData.jazoest || '');
+        if (formData.lsd) payload.append('lsd', formData.lsd);
+
+        // Submit login
+        const loginResponse = await session.post(
+            BASE_FB_MOBILE_URL + '/login/device-based/regular/login/',
+            payload.toString(),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Referer': BASE_FB_MOBILE_URL + '/login/',
+                }
+            }
+        );
+
+        const cookies = await session.defaults.jar.getCookieString(BASE_FB_MOBILE_URL);
+        const responseText = typeof loginResponse.data === 'string' ? loginResponse.data : JSON.stringify(loginResponse.data);
+
+        // Check if login successful
+        if (cookies.includes('c_user=') && !cookies.includes('c_user=0')) {
+            const { uid, profileUrl } = await extractUidAndProfile(session.defaults.jar, responseText, BASE_FB_MOBILE_URL);
+            return { success: true, uid, profileUrl, message: 'Login successful!' };
+        } else if (responseText.includes('checkpoint') || responseText.includes('confirmation')) {
+            return { success: false, needsConfirmation: true, message: 'Account needs confirmation' };
+        } else {
+            return { success: false, message: 'Login failed - invalid credentials or account issue' };
+        }
+    } catch (error) {
+        return { success: false, message: `Login test error: ${error.message}` };
+    }
+};
+
 const createAxiosSession = (userAgentString, proxyString = null) => {
     const jar = new CookieJar();
     let proxyConfig = null;
@@ -171,16 +271,80 @@ module.exports = {
     config: {
         name: "fbcreate",
         description: "Create a Facebook account automatically",
-        usage: "fbcreate <email> [proxy_ip:port:user:pass]",
+        usage: "fbcreate <email> [proxy] OR fbcreate verify <email> <password> <code> [proxy]",
         author: "Bot Admin"
     },
     
     run: async function({ api, message, args, threadID, senderID }) {
+        // Handle verification mode
+        if (args[0] && args[0].toLowerCase() === 'verify') {
+            if (args.length < 4) {
+                return api.sendMessage(
+                    '❌ Usage for verification: fbcreate verify <email> <password> <confirmation_code> [proxy]\n\n' +
+                    'Example: fbcreate verify myemail@example.com MyPass123! 123456',
+                    threadID
+                );
+            }
+
+            const email = args[1];
+            const password = args[2];
+            const code = args[3];
+            const proxyString = args[4] || null;
+
+            try {
+                const statusMsg = await api.sendMessage(
+                    `⏳ Verifying account...\n📧 Email: ${email}`,
+                    threadID
+                );
+
+                const userAgentString = generateUserAgent();
+                const session = createAxiosSession(userAgentString, proxyString);
+
+                // Submit confirmation code
+                await submitConfirmationCode(session, code, email);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Test login after confirmation
+                const loginTest = await testLogin(email, password, proxyString);
+
+                if (loginTest.success) {
+                    return api.sendMessage(
+                        `✅ ACCOUNT VERIFIED SUCCESSFULLY!\n\n` +
+                        `📧 Email: ${email}\n` +
+                        `🔑 Password: ${password}\n` +
+                        `🆔 User ID: ${loginTest.uid}\n` +
+                        `🔗 Profile: ${loginTest.profileUrl}\n\n` +
+                        `✨ Your account is now active and ready to use!`,
+                        threadID
+                    );
+                } else {
+                    return api.sendMessage(
+                        `⚠️ VERIFICATION COMPLETED BUT LOGIN ISSUE!\n\n` +
+                        `📧 Email: ${email}\n` +
+                        `🔑 Password: ${password}\n\n` +
+                        `❌ ${loginTest.message}\n\n` +
+                        `💡 Try logging in manually at facebook.com`,
+                        threadID
+                    );
+                }
+            } catch (error) {
+                return api.sendMessage(
+                    `❌ VERIFICATION FAILED!\n\n` +
+                    `📧 Email: ${email}\n` +
+                    `Error: ${error.message}\n\n` +
+                    `💡 Make sure the confirmation code is correct`,
+                    threadID
+                );
+            }
+        }
+
+        // Handle account creation mode
         if (args.length < 1) {
             return api.sendMessage(
                 '❌ Usage: fbcreate <email> [proxy]\n\n' +
-                'Example: fbcreate myemail@example.com\n' +
-                'With proxy: fbcreate myemail@example.com 1.2.3.4:8080:user:pass',
+                'Create account: fbcreate myemail@example.com\n' +
+                'With proxy: fbcreate myemail@example.com 1.2.3.4:8080:user:pass\n\n' +
+                'Verify account: fbcreate verify <email> <password> <code> [proxy]',
                 threadID
             );
         }
@@ -362,20 +526,39 @@ module.exports = {
             let resultMessage = '';
             
             if (success && uid !== "Not available" && !checkpoint) {
-                resultMessage = `✅ ACCOUNT CREATED SUCCESSFULLY!\n\n` +
-                    `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
-                    `📧 Email: ${email}\n` +
-                    `🔑 Password: ${genPassword}\n` +
-                    `🆔 User ID: ${uid}\n` +
-                    `🔗 Profile: ${profileUrl}\n\n` +
-                    `✨ Your account is ready to use!`;
+                // Test login to verify account works
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const loginTest = await testLogin(email, genPassword, proxyString);
+
+                if (loginTest.success) {
+                    resultMessage = `✅ ACCOUNT CREATED & VERIFIED!\n\n` +
+                        `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
+                        `📧 Email: ${email}\n` +
+                        `🔑 Password: ${genPassword}\n` +
+                        `🆔 User ID: ${loginTest.uid || uid}\n` +
+                        `🔗 Profile: ${loginTest.profileUrl || profileUrl}\n\n` +
+                        `✅ Login Test: PASSED\n` +
+                        `✨ Your account is ready to use!`;
+                } else {
+                    resultMessage = `⚠️ ACCOUNT CREATED BUT LOGIN FAILED!\n\n` +
+                        `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
+                        `📧 Email: ${email}\n` +
+                        `🔑 Password: ${genPassword}\n` +
+                        `🆔 User ID: ${uid}\n` +
+                        `🔗 Profile: ${profileUrl}\n\n` +
+                        `❌ Login Test: ${loginTest.message}\n\n` +
+                        `💡 Account may need time to activate or requires verification`;
+                }
             } else if (checkpoint || success) {
-                resultMessage = `📬 ACCOUNT NEEDS CONFIRMATION!\n\n` +
+                resultMessage = `📬 ACCOUNT CREATED - CONFIRMATION NEEDED!\n\n` +
                     `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
                     `📧 Email: ${email}\n` +
                     `🔑 Password: ${genPassword}\n` +
-                    `🆔 User ID: ${uid !== "Not available" ? uid : "Check email"}\n\n` +
-                    `⚠️ Please check your email for confirmation code from Facebook!`;
+                    `🆔 User ID: ${uid !== "Not available" ? uid : "Will be available after confirmation"}\n\n` +
+                    `⚠️ CHECK YOUR EMAIL for the confirmation code!\n\n` +
+                    `To verify, use:\n` +
+                    `fbcreate verify ${email} ${genPassword} <code>\n\n` +
+                    `📝 Save your email and password above!`;
             } else {
                 const $ = cheerio.load(responseText);
                 const errorDetail = $('#reg_error_inner').text().trim() || 
