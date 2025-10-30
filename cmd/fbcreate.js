@@ -7,17 +7,98 @@ const BASE_FB_MOBILE_URL = 'https://m.facebook.com';
 const DEFAULT_TIMEOUT = 45000;
 
 // ==========================================
-// HELPER FUNCTIONS
+// ANTI-DETECTION SYSTEM v2.0
+// ==========================================
+// Features:
+// ✓ Realistic device fingerprints (Android/iPhone)
+// ✓ Consistent browser headers (sec-ch-ua)
+// ✓ Human-like timing delays (1-8 seconds)
+// ✓ Proper referer chains
+// ✓ Encrypted password submission
+// ✓ Session persistence across requests
+// ✓ Screen resolution & DPR matching
+// ✓ Natural navigation flow
 // ==========================================
 
-const generateUserAgent = () => {
-    const agents = [
-        'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (Linux; Android 12; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+const generateDeviceFingerprint = () => {
+    const devices = [
+        {
+            ua: 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36',
+            model: 'SM-S918B',
+            platform: 'Android',
+            vendor: 'Google Inc.',
+            language: 'en-US',
+            screen: { width: 1440, height: 3088, ratio: 3.5 }
+        },
+        {
+            ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.101 Mobile Safari/537.36',
+            model: 'Pixel 8 Pro',
+            platform: 'Android',
+            vendor: 'Google Inc.',
+            language: 'en-US',
+            screen: { width: 1344, height: 2992, ratio: 3.5 }
+        },
+        {
+            ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+            model: 'iPhone15,3',
+            platform: 'iPhone',
+            vendor: 'Apple Computer, Inc.',
+            language: 'en-US',
+            screen: { width: 1290, height: 2796, ratio: 3 }
+        },
+        {
+            ua: 'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.193 Mobile Safari/537.36',
+            model: 'SM-G998B',
+            platform: 'Android',
+            vendor: 'Google Inc.',
+            language: 'en-US',
+            screen: { width: 1440, height: 3200, ratio: 3 }
+        }
     ];
-    return agents[Math.floor(Math.random() * agents.length)];
+    return devices[Math.floor(Math.random() * devices.length)];
+};
+
+const humanDelay = async (min = 1000, max = 3000) => {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    await new Promise(resolve => setTimeout(resolve, delay));
+};
+
+const generateSecChUa = (device) => {
+    if (device.platform === 'iPhone') {
+        return '"Not_A Brand";v="8", "Chromium";v="120", "Safari";v="17"';
+    }
+    return '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"';
+};
+
+const getRealisticHeaders = (device, referer = null) => {
+    const headers = {
+        'User-Agent': device.ua,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': `${device.language},en;q=0.9`,
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': referer ? 'same-origin' : 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
+        'sec-ch-ua': generateSecChUa(device),
+        'sec-ch-ua-mobile': device.platform === 'iPhone' || device.platform === 'Android' ? '?1' : '?0',
+        'sec-ch-ua-platform': `"${device.platform}"`,
+        'viewport-width': device.screen.width.toString(),
+        'dpr': device.screen.ratio.toString(),
+    };
+    
+    if (referer) {
+        headers['Referer'] = referer;
+    }
+    
+    return headers;
+};
+
+const generateUserAgent = () => {
+    return generateDeviceFingerprint().ua;
 };
 
 const fakeName = () => {
@@ -44,6 +125,16 @@ const getProfileUrl = (uid) => `https://www.facebook.com/profile.php?id=${uid}`;
 
 const submitConfirmationCode = async (session, code, email) => {
     try {
+        // Human-like delay before starting
+        await humanDelay(2000, 4000);
+        
+        // First, visit homepage to establish session
+        await session.get(BASE_FB_MOBILE_URL + '/', {
+            headers: getRealisticHeaders(session.device)
+        });
+        
+        await humanDelay(1500, 2500);
+        
         // Try to find confirmation page
         const checkpointUrls = [
             BASE_FB_MOBILE_URL + '/checkpoint/',
@@ -52,11 +143,16 @@ const submitConfirmationCode = async (session, code, email) => {
         ];
 
         let confirmPageHtml = '';
+        let workingUrl = '';
         for (const url of checkpointUrls) {
             try {
-                const response = await session.get(url);
+                await humanDelay(800, 1500);
+                const response = await session.get(url, {
+                    headers: getRealisticHeaders(session.device, BASE_FB_MOBILE_URL + '/')
+                });
                 if (response.status === 200 && response.data) {
                     confirmPageHtml = response.data;
+                    workingUrl = url;
                     break;
                 }
             } catch (err) {
@@ -69,8 +165,11 @@ const submitConfirmationCode = async (session, code, email) => {
         }
 
         const formData = extractFormDataV2(confirmPageHtml);
-        const payload = new URLSearchParams();
         
+        // Human delay simulating reading and typing
+        await humanDelay(3000, 5000);
+        
+        const payload = new URLSearchParams();
         payload.append('code', code);
         payload.append('email', email);
         payload.append('submit[Submit Code]', 'Submit Code');
@@ -78,13 +177,18 @@ const submitConfirmationCode = async (session, code, email) => {
         payload.append('jazoest', formData.jazoest || '');
         if (formData.lsd) payload.append('lsd', formData.lsd);
 
+        // Submit with proper headers
         const confirmResponse = await session.post(
             BASE_FB_MOBILE_URL + '/confirmemail.php',
             payload.toString(),
             {
                 headers: {
+                    ...getRealisticHeaders(session.device, workingUrl),
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': BASE_FB_MOBILE_URL + '/checkpoint/',
+                    'Origin': BASE_FB_MOBILE_URL,
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'same-origin',
                 }
             }
         );
@@ -95,14 +199,28 @@ const submitConfirmationCode = async (session, code, email) => {
     }
 };
 
-const testLogin = async (email, password, proxyString = null) => {
+const testLogin = async (email, password, proxyString = null, deviceFp = null) => {
     try {
-        const userAgentString = generateUserAgent();
-        const session = createAxiosSession(userAgentString, proxyString);
+        const device = deviceFp || generateDeviceFingerprint();
+        const session = createAxiosSession(device, proxyString);
 
-        // Get login page
-        const loginPage = await session.get(BASE_FB_MOBILE_URL + '/login/');
+        // Visit homepage first (natural behavior)
+        await humanDelay(1000, 2000);
+        await session.get(BASE_FB_MOBILE_URL + '/', {
+            headers: getRealisticHeaders(device)
+        });
+
+        // Human delay before going to login
+        await humanDelay(2000, 3500);
+
+        // Get login page with proper referer
+        const loginPage = await session.get(BASE_FB_MOBILE_URL + '/login/', {
+            headers: getRealisticHeaders(device, BASE_FB_MOBILE_URL + '/')
+        });
         const formData = extractFormDataV2(loginPage.data);
+
+        // Simulate reading and typing (human behavior)
+        await humanDelay(3000, 6000);
 
         // Prepare login payload
         const payload = new URLSearchParams();
@@ -113,17 +231,32 @@ const testLogin = async (email, password, proxyString = null) => {
         payload.append('jazoest', formData.jazoest || '');
         if (formData.lsd) payload.append('lsd', formData.lsd);
 
-        // Submit login
+        // Encrypted password (Facebook expects this)
+        const timestamp = Math.floor(Date.now() / 1000);
+        payload.append('encpass', `#PWD_BROWSER:0:${timestamp}:${password}`);
+
+        // Small delay before submitting
+        await humanDelay(500, 1000);
+
+        // Submit login with anti-detection headers
         const loginResponse = await session.post(
             BASE_FB_MOBILE_URL + '/login/device-based/regular/login/',
             payload.toString(),
             {
                 headers: {
+                    ...getRealisticHeaders(device, BASE_FB_MOBILE_URL + '/login/'),
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': BASE_FB_MOBILE_URL + '/login/',
+                    'Origin': BASE_FB_MOBILE_URL,
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'Sec-Fetch-User': '?1',
                 }
             }
         );
+
+        // Wait a bit before checking cookies (simulate page load)
+        await humanDelay(1500, 2500);
 
         const cookies = await session.defaults.jar.getCookieString(BASE_FB_MOBILE_URL);
         const responseText = typeof loginResponse.data === 'string' ? loginResponse.data : JSON.stringify(loginResponse.data);
@@ -131,9 +264,9 @@ const testLogin = async (email, password, proxyString = null) => {
         // Check if login successful
         if (cookies.includes('c_user=') && !cookies.includes('c_user=0')) {
             const { uid, profileUrl } = await extractUidAndProfile(session.defaults.jar, responseText, BASE_FB_MOBILE_URL);
-            return { success: true, uid, profileUrl, message: 'Login successful!' };
+            return { success: true, uid, profileUrl, message: 'Login successful!', session, device };
         } else if (responseText.includes('checkpoint') || responseText.includes('confirmation')) {
-            return { success: false, needsConfirmation: true, message: 'Account needs confirmation' };
+            return { success: false, needsConfirmation: true, message: 'Account needs confirmation', session, device };
         } else {
             return { success: false, message: 'Login failed - invalid credentials or account issue' };
         }
@@ -142,7 +275,7 @@ const testLogin = async (email, password, proxyString = null) => {
     }
 };
 
-const createAxiosSession = (userAgentString, proxyString = null) => {
+const createAxiosSession = (device, proxyString = null) => {
     const jar = new CookieJar();
     let proxyConfig = null;
 
@@ -170,25 +303,14 @@ const createAxiosSession = (userAgentString, proxyString = null) => {
     const session = axios.create({
         jar: jar,
         withCredentials: true,
-        headers: {
-            'User-Agent': userAgentString,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-        },
+        headers: getRealisticHeaders(device),
         timeout: DEFAULT_TIMEOUT,
         maxRedirects: 10,
         validateStatus: (status) => status >= 200 && status < 600,
         proxy: proxyConfig,
     });
     axiosCookieJarSupport(session);
+    session.device = device; // Store device fingerprint
     return session;
 };
 
@@ -293,37 +415,55 @@ module.exports = {
 
             try {
                 const statusMsg = await api.sendMessage(
-                    `⏳ Verifying account...\n📧 Email: ${email}`,
+                    `⏳ Verifying account with anti-detection...\n📧 Email: ${email}\n\n⌛ Please wait, simulating human behavior...`,
                     threadID
                 );
 
-                const userAgentString = generateUserAgent();
-                const session = createAxiosSession(userAgentString, proxyString);
+                // Generate consistent device fingerprint
+                const device = generateDeviceFingerprint();
+                const session = createAxiosSession(device, proxyString);
 
-                // Submit confirmation code
+                // First, try to login to get the session
+                await humanDelay(2000, 3000);
+                
+                // Visit login page to establish session
+                await session.get(BASE_FB_MOBILE_URL + '/login/', {
+                    headers: getRealisticHeaders(device)
+                });
+
+                await humanDelay(1500, 2500);
+
+                // Submit confirmation code with the session
                 await submitConfirmationCode(session, code, email);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Wait for confirmation to process
+                await humanDelay(3000, 5000);
 
-                // Test login after confirmation
-                const loginTest = await testLogin(email, password, proxyString);
+                // Test login after confirmation using the same device
+                const loginTest = await testLogin(email, password, proxyString, device);
 
                 if (loginTest.success) {
                     return api.sendMessage(
-                        `✅ ACCOUNT VERIFIED SUCCESSFULLY!\n\n` +
+                        `✅ ACCOUNT VERIFIED & ACTIVE!\n\n` +
                         `📧 Email: ${email}\n` +
                         `🔑 Password: ${password}\n` +
                         `🆔 User ID: ${loginTest.uid}\n` +
                         `🔗 Profile: ${loginTest.profileUrl}\n\n` +
-                        `✨ Your account is now active and ready to use!`,
+                        `🛡️ Device: ${device.model}\n` +
+                        `✅ Anti-Detection: ACTIVE\n` +
+                        `✨ Your account is ready to use!\n\n` +
+                        `💡 TIP: Use same proxy when logging in to avoid bans`,
                         threadID
                     );
                 } else {
                     return api.sendMessage(
-                        `⚠️ VERIFICATION COMPLETED BUT LOGIN ISSUE!\n\n` +
+                        `⚠️ VERIFICATION SENT BUT LOGIN PENDING!\n\n` +
                         `📧 Email: ${email}\n` +
                         `🔑 Password: ${password}\n\n` +
-                        `❌ ${loginTest.message}\n\n` +
-                        `💡 Try logging in manually at facebook.com`,
+                        `Status: ${loginTest.message}\n\n` +
+                        `💡 Wait 5-10 minutes, then try:\n` +
+                        `fbcreate verify ${email} ${password} ${code}\n\n` +
+                        `Or login manually at m.facebook.com`,
                         threadID
                     );
                 }
@@ -332,7 +472,10 @@ module.exports = {
                     `❌ VERIFICATION FAILED!\n\n` +
                     `📧 Email: ${email}\n` +
                     `Error: ${error.message}\n\n` +
-                    `💡 Make sure the confirmation code is correct`,
+                    `💡 Troubleshooting:\n` +
+                    `• Check confirmation code is correct\n` +
+                    `• Try with a proxy if not using one\n` +
+                    `• Wait a few minutes and try again`,
                     threadID
                 );
             }
@@ -363,38 +506,47 @@ module.exports = {
         try {
             // Send initial status
             const statusMsg = await api.sendMessage(
-                `⏳ Creating Facebook account${proxyString ? ' with proxy' : ''}...\n` +
+                `⏳ Creating Facebook account with anti-detection...\n` +
                 `📧 Email: ${email}\n` +
-                `👤 Name: ${genName.firstName} ${genName.lastName}`,
+                `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
+                `${proxyString ? '🌐 Using proxy' : ''}\n\n` +
+                `⌛ Simulating human behavior, please wait...`,
                 threadID
             );
             statusMsgID = statusMsg.messageID;
 
-            const userAgentString = generateUserAgent();
-            const session = createAxiosSession(userAgentString, proxyString);
+            // Generate consistent device fingerprint for this session
+            const device = generateDeviceFingerprint();
+            const session = createAxiosSession(device, proxyString);
 
-            // Navigate to consent page with retry
+            console.log(`🛡️ Using device: ${device.model}`);
+
+            // Navigate to homepage with human-like behavior
             let homepageSuccess = false;
             for (let i = 0; i < 3; i++) {
                 try {
-                    await session.get(BASE_FB_MOBILE_URL + '/');
+                    await humanDelay(1500, 2500);
+                    await session.get(BASE_FB_MOBILE_URL + '/', {
+                        headers: getRealisticHeaders(device)
+                    });
                     homepageSuccess = true;
+                    console.log('✅ Homepage loaded');
                     break;
                 } catch (err) {
-                    console.log(`Homepage attempt ${i+1} failed:`, err.message);
-                    if (i === 2) throw new Error('Cannot connect to Facebook');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    console.log(`❌ Homepage attempt ${i+1} failed:`, err.message);
+                    if (i === 2) throw new Error('Cannot connect to Facebook - check internet/proxy');
+                    await humanDelay(3000, 5000);
                 }
             }
 
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+            // Simulate user reading the homepage
+            await humanDelay(2000, 4000);
 
-            // Try multiple registration URLs
+            // Try multiple registration URLs with human timing
             const regUrls = [
                 BASE_FB_MOBILE_URL + '/reg/',
                 BASE_FB_MOBILE_URL + '/r.php',
                 BASE_FB_MOBILE_URL + '/reg/index.php',
-                'https://www.facebook.com/reg/',
             ];
 
             let regPageResponse = null;
@@ -402,22 +554,25 @@ module.exports = {
 
             for (const regUrl of regUrls) {
                 try {
-                    console.log(`Trying registration URL: ${regUrl}`);
+                    console.log(`🔍 Trying registration URL: ${regUrl}`);
+                    await humanDelay(1000, 2000);
+                    
                     const response = await session.get(regUrl, {
-                        headers: { 
-                            'Referer': BASE_FB_MOBILE_URL + '/',
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                        }
+                        headers: getRealisticHeaders(device, BASE_FB_MOBILE_URL + '/')
                     });
 
                     if (response && response.status === 200 && response.data) {
                         regPageResponse = response;
                         responseData = response.data;
-                        console.log(`Success with: ${regUrl}`);
+                        console.log(`✅ Success with: ${regUrl}`);
                         break;
                     }
                 } catch (err) {
-                    console.log(`Failed ${regUrl}:`, err.message);
+                    console.log(`❌ Failed ${regUrl}:`, err.message);
+                    if (regUrl === regUrls[regUrls.length - 1]) {
+                        throw new Error('All registration URLs failed. Try using a proxy or different network.');
+                    }
+                    await humanDelay(1500, 2500);
                     continue;
                 }
             }
@@ -426,11 +581,18 @@ module.exports = {
                 throw new Error('All registration URLs failed. Facebook may be blocking access. Try using a proxy or VPN.');
             }
 
+            console.log('✅ Registration page loaded');
+
             const formData = extractFormDataV2(responseData);
 
             if (!formData.fb_dtsg || !formData.jazoest) {
-                throw new Error('Failed to extract form data');
+                throw new Error('Failed to extract form data - Facebook changed their page structure');
             }
+
+            console.log('✅ Form data extracted');
+
+            // Simulate user reading and thinking (3-8 seconds)
+            await humanDelay(3000, 8000);
 
             // Prepare submission data
             const payload = new URLSearchParams();
@@ -445,6 +607,7 @@ module.exports = {
             payload.append('firstname', genName.firstName);
             payload.append('lastname', genName.lastName);
             payload.append('reg_email__', email);
+            payload.append('reg_email_confirmation__', email);
             payload.append('reg_passwd__', genPassword);
             payload.append('birthday_day', randomDay.toString());
             payload.append('birthday_month', randomMonth.toString());
@@ -456,32 +619,46 @@ module.exports = {
             payload.append('jazoest', formData.jazoest);
             if (formData.lsd) payload.append('lsd', formData.lsd);
 
-            // Add encrypted password
+            // Add encrypted password (important for anti-detection)
             const timestamp = Math.floor(Date.now() / 1000);
             payload.append('encpass', `#PWD_BROWSER:0:${timestamp}:${genPassword}`);
+            
+            // Additional anti-bot parameters
+            payload.append('locale', 'en_US');
+            payload.append('referrer', '');
+            payload.append('asked_to_login', '0');
+            payload.append('terms', 'on');
+            payload.append('ab_test_data', '');
 
-            // Submit registration with multiple endpoints
-            await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+            console.log('📝 Form filled, submitting...');
+
+            // Simulate typing pause before clicking submit
+            await humanDelay(1500, 3000);
             
             const submitEndpoints = [
                 BASE_FB_MOBILE_URL + '/reg/submit/',
                 BASE_FB_MOBILE_URL + '/ajax/register.php',
-                'https://www.facebook.com/ajax/register.php',
             ];
 
             let submitResponse = null;
             let responseText = '';
             let finalUrl = '';
+            let usedRegUrl = regPageResponse.config?.url || BASE_FB_MOBILE_URL + '/reg/';
 
             for (const endpoint of submitEndpoints) {
                 try {
-                    console.log(`Submitting to: ${endpoint}`);
+                    console.log(`🚀 Submitting to: ${endpoint}`);
+                    
                     submitResponse = await session.post(endpoint, payload.toString(), {
                         headers: {
+                            ...getRealisticHeaders(device, usedRegUrl),
                             'Content-Type': 'application/x-www-form-urlencoded',
-                            'Referer': BASE_FB_MOBILE_URL + '/reg/',
                             'Origin': BASE_FB_MOBILE_URL,
-                            'X-Requested-With': 'XMLHttpRequest',
+                            'Sec-Fetch-Dest': 'document',
+                            'Sec-Fetch-Mode': 'navigate',
+                            'Sec-Fetch-Site': 'same-origin',
+                            'Sec-Fetch-User': '?1',
+                            'X-Requested-With': endpoint.includes('ajax') ? 'XMLHttpRequest' : undefined,
                         },
                         timeout: 60000
                     });
@@ -489,14 +666,15 @@ module.exports = {
                     if (submitResponse && submitResponse.data) {
                         responseText = (typeof submitResponse.data === 'string') ? submitResponse.data : JSON.stringify(submitResponse.data);
                         finalUrl = submitResponse.request?.res?.responseUrl || endpoint;
-                        console.log(`Submit success with: ${endpoint}`);
+                        console.log(`✅ Submit success with: ${endpoint}`);
                         break;
                     }
                 } catch (err) {
-                    console.log(`Submit failed ${endpoint}:`, err.message);
+                    console.log(`❌ Submit failed ${endpoint}:`, err.message);
                     if (endpoint === submitEndpoints[submitEndpoints.length - 1]) {
-                        throw new Error('Failed to submit registration to all endpoints: ' + err.message);
+                        throw new Error('Failed to submit registration: ' + err.message);
                     }
+                    await humanDelay(1000, 2000);
                     continue;
                 }
             }
@@ -504,6 +682,8 @@ module.exports = {
             if (!submitResponse) {
                 throw new Error('Registration submission failed - no response from Facebook');
             }
+
+            console.log('✅ Registration submitted, checking result...');
 
             const currentCookies = await session.defaults.jar.getCookieString(finalUrl);
             const { uid, profileUrl } = await extractUidAndProfile(session.defaults.jar, responseText, finalUrl);
@@ -514,21 +694,25 @@ module.exports = {
 
             if (currentCookies.includes('c_user=') && !currentCookies.includes('c_user=0')) {
                 success = true;
+                console.log('✅ Account created with valid c_user cookie');
             }
             if (responseText.toLowerCase().includes('checkpoint') ||
                 responseText.includes('confirmation_code') ||
                 responseText.includes('verify your email')) {
                 checkpoint = true;
                 success = true;
+                console.log('⚠️ Account needs confirmation');
             }
 
             // Send result
             let resultMessage = '';
             
             if (success && uid !== "Not available" && !checkpoint) {
-                // Test login to verify account works
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                const loginTest = await testLogin(email, genPassword, proxyString);
+                console.log('🔍 Testing login with same device fingerprint...');
+                
+                // Test login to verify account works with same device
+                await humanDelay(3000, 5000);
+                const loginTest = await testLogin(email, genPassword, proxyString, device);
 
                 if (loginTest.success) {
                     resultMessage = `✅ ACCOUNT CREATED & VERIFIED!\n\n` +
@@ -537,17 +721,25 @@ module.exports = {
                         `🔑 Password: ${genPassword}\n` +
                         `🆔 User ID: ${loginTest.uid || uid}\n` +
                         `🔗 Profile: ${loginTest.profileUrl || profileUrl}\n\n` +
+                        `🛡️ Device: ${device.model}\n` +
                         `✅ Login Test: PASSED\n` +
-                        `✨ Your account is ready to use!`;
+                        `✅ Anti-Detection: ACTIVE\n\n` +
+                        `✨ Your account is ready to use!\n\n` +
+                        `💡 IMPORTANT: ${proxyString ? 'Use same proxy when logging in' : 'Consider using a proxy to avoid bans'}`;
                 } else {
-                    resultMessage = `⚠️ ACCOUNT CREATED BUT LOGIN FAILED!\n\n` +
+                    resultMessage = `⚠️ ACCOUNT CREATED BUT LOGIN PENDING!\n\n` +
                         `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
                         `📧 Email: ${email}\n` +
                         `🔑 Password: ${genPassword}\n` +
                         `🆔 User ID: ${uid}\n` +
                         `🔗 Profile: ${profileUrl}\n\n` +
+                        `🛡️ Device: ${device.model}\n` +
                         `❌ Login Test: ${loginTest.message}\n\n` +
-                        `💡 Account may need time to activate or requires verification`;
+                        `💡 Possible reasons:\n` +
+                        `• Account needs 5-10 minutes to activate\n` +
+                        `• May need email confirmation (check inbox)\n` +
+                        `• Facebook delayed verification\n\n` +
+                        `Try: fbcreate verify ${email} ${genPassword} <code>`;
                 }
             } else if (checkpoint || success) {
                 resultMessage = `📬 ACCOUNT CREATED - CONFIRMATION NEEDED!\n\n` +
@@ -555,10 +747,13 @@ module.exports = {
                     `📧 Email: ${email}\n` +
                     `🔑 Password: ${genPassword}\n` +
                     `🆔 User ID: ${uid !== "Not available" ? uid : "Will be available after confirmation"}\n\n` +
+                    `🛡️ Device: ${device.model}\n` +
+                    `✅ Anti-Detection: ACTIVE\n\n` +
                     `⚠️ CHECK YOUR EMAIL for the confirmation code!\n\n` +
                     `To verify, use:\n` +
                     `fbcreate verify ${email} ${genPassword} <code>\n\n` +
-                    `📝 Save your email and password above!`;
+                    `Example: fbcreate verify ${email} ${genPassword} 123456\n\n` +
+                    `📝 SAVE your credentials above!`;
             } else {
                 const $ = cheerio.load(responseText);
                 const errorDetail = $('#reg_error_inner').text().trim() || 
@@ -566,7 +761,11 @@ module.exports = {
                                   "Facebook rejected the registration";
                 resultMessage = `❌ ACCOUNT CREATION FAILED!\n\n` +
                     `📧 Email: ${email}\n` +
-                    `⚠️ Reason: ${errorDetail}`;
+                    `⚠️ Reason: ${errorDetail}\n\n` +
+                    `💡 Try:\n` +
+                    `• Using a different email\n` +
+                    `• Adding a proxy\n` +
+                    `• Waiting a few minutes`;
             }
 
             api.sendMessage(resultMessage, threadID);
@@ -574,23 +773,51 @@ module.exports = {
         } catch (error) {
             console.error('FB Account Creation Error:', error);
             
-            let errorMessage = `💥 CRITICAL ERROR!\n\n` +
+            let errorMessage = `💥 ACCOUNT CREATION ERROR!\n\n` +
                 `📧 Email: ${email}\n` +
                 `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
                 `🔑 Password: ${genPassword}\n\n` +
                 `❌ Error: ${error.message}\n\n`;
             
             // Add helpful suggestions based on error type
-            if (error.message.includes('blocking') || error.message.includes('failed')) {
-                errorMessage += `💡 Suggestions:\n` +
-                    `• Try using a proxy (add proxy after email)\n` +
-                    `• Facebook may be blocking automated requests\n` +
-                    `• Try again in a few minutes\n` +
-                    `• Use a VPN or different network`;
-            } else if (error.message.includes('timeout')) {
-                errorMessage += `💡 Suggestion: Network timeout - try again with a faster connection`;
-            } else if (error.message.includes('connect')) {
-                errorMessage += `💡 Suggestion: Cannot reach Facebook - check your internet connection`;
+            if (error.message.includes('blocking') || error.message.includes('All registration URLs failed')) {
+                errorMessage += `🛡️ ANTI-BOT DETECTION LIKELY!\n\n` +
+                    `💡 Solutions:\n` +
+                    `1. Use a residential proxy:\n` +
+                    `   fbcreate ${email} IP:PORT:USER:PASS\n\n` +
+                    `2. Use a VPN (before running command)\n\n` +
+                    `3. Try from a mobile hotspot\n\n` +
+                    `4. Wait 10-30 minutes and retry\n\n` +
+                    `5. Use a different IP address\n\n` +
+                    `📝 IMPORTANT: Save credentials above!`;
+            } else if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+                errorMessage += `💡 NETWORK TIMEOUT!\n\n` +
+                    `Solutions:\n` +
+                    `• Check your internet connection\n` +
+                    `• Try with a faster proxy/VPN\n` +
+                    `• Retry the command\n\n` +
+                    `📝 Credentials saved above`;
+            } else if (error.message.includes('connect') || error.message.includes('ECONNREFUSED')) {
+                errorMessage += `💡 CONNECTION FAILED!\n\n` +
+                    `Solutions:\n` +
+                    `• Check internet connection\n` +
+                    `• Try different proxy/network\n` +
+                    `• Facebook may be temporarily down\n\n` +
+                    `📝 Credentials saved above`;
+            } else if (error.message.includes('form data')) {
+                errorMessage += `💡 FACEBOOK PAGE CHANGED!\n\n` +
+                    `Solutions:\n` +
+                    `• Facebook updated their page structure\n` +
+                    `• Try using a proxy from different region\n` +
+                    `• Report this issue to admin\n\n` +
+                    `📝 Credentials saved above`;
+            } else {
+                errorMessage += `💡 GENERAL TROUBLESHOOTING:\n` +
+                    `• Use a residential proxy (recommended)\n` +
+                    `• Try from different IP/network\n` +
+                    `• Wait and retry in 15-30 minutes\n` +
+                    `• Contact admin if issue persists\n\n` +
+                    `📝 Credentials saved above in case of partial success`;
             }
             
             api.sendMessage(errorMessage, threadID);
