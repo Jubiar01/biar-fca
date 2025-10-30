@@ -12,9 +12,10 @@ const DEFAULT_TIMEOUT = 45000;
 
 const generateUserAgent = () => {
     const agents = [
-        'Mozilla/5.0 (Linux; Android 12; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
+        'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Mozilla/5.0 (Linux; Android 12; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
     ];
     return agents[Math.floor(Math.random() * agents.length)];
 };
@@ -71,14 +72,20 @@ const createAxiosSession = (userAgentString, proxyString = null) => {
         withCredentials: true,
         headers: {
             'User-Agent': userAgentString,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
         },
         timeout: DEFAULT_TIMEOUT,
         maxRedirects: 10,
-        validateStatus: (status) => status >= 200 && status < 500,
+        validateStatus: (status) => status >= 200 && status < 600,
         proxy: proxyConfig,
     });
     axiosCookieJarSupport(session);
@@ -202,20 +209,59 @@ module.exports = {
             const userAgentString = generateUserAgent();
             const session = createAxiosSession(userAgentString, proxyString);
 
-            // Navigate to consent page
-            await session.get(BASE_FB_MOBILE_URL + '/');
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-
-            // Get registration page
-            const regPageResponse = await session.get(BASE_FB_MOBILE_URL + '/reg/', {
-                headers: { 'Referer': BASE_FB_MOBILE_URL + '/' }
-            });
-
-            if (!regPageResponse || regPageResponse.status >= 400) {
-                throw new Error('Failed to load registration page');
+            // Navigate to consent page with retry
+            let homepageSuccess = false;
+            for (let i = 0; i < 3; i++) {
+                try {
+                    await session.get(BASE_FB_MOBILE_URL + '/');
+                    homepageSuccess = true;
+                    break;
+                } catch (err) {
+                    console.log(`Homepage attempt ${i+1} failed:`, err.message);
+                    if (i === 2) throw new Error('Cannot connect to Facebook');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
             }
 
-            const responseData = regPageResponse.data;
+            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+
+            // Try multiple registration URLs
+            const regUrls = [
+                BASE_FB_MOBILE_URL + '/reg/',
+                BASE_FB_MOBILE_URL + '/r.php',
+                BASE_FB_MOBILE_URL + '/reg/index.php',
+                'https://www.facebook.com/reg/',
+            ];
+
+            let regPageResponse = null;
+            let responseData = null;
+
+            for (const regUrl of regUrls) {
+                try {
+                    console.log(`Trying registration URL: ${regUrl}`);
+                    const response = await session.get(regUrl, {
+                        headers: { 
+                            'Referer': BASE_FB_MOBILE_URL + '/',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                        }
+                    });
+
+                    if (response && response.status === 200 && response.data) {
+                        regPageResponse = response;
+                        responseData = response.data;
+                        console.log(`Success with: ${regUrl}`);
+                        break;
+                    }
+                } catch (err) {
+                    console.log(`Failed ${regUrl}:`, err.message);
+                    continue;
+                }
+            }
+
+            if (!regPageResponse || !responseData) {
+                throw new Error('All registration URLs failed. Facebook may be blocking access. Try using a proxy or VPN.');
+            }
+
             const formData = extractFormDataV2(responseData);
 
             if (!formData.fb_dtsg || !formData.jazoest) {
@@ -250,20 +296,50 @@ module.exports = {
             const timestamp = Math.floor(Date.now() / 1000);
             payload.append('encpass', `#PWD_BROWSER:0:${timestamp}:${genPassword}`);
 
-            // Submit registration
+            // Submit registration with multiple endpoints
             await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
             
-            const submitResponse = await session.post(BASE_FB_MOBILE_URL + '/reg/submit/', payload.toString(), {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': BASE_FB_MOBILE_URL + '/reg/',
-                    'Origin': BASE_FB_MOBILE_URL,
-                },
-                timeout: 60000
-            });
+            const submitEndpoints = [
+                BASE_FB_MOBILE_URL + '/reg/submit/',
+                BASE_FB_MOBILE_URL + '/ajax/register.php',
+                'https://www.facebook.com/ajax/register.php',
+            ];
 
-            const responseText = (typeof submitResponse.data === 'string') ? submitResponse.data : JSON.stringify(submitResponse.data);
-            const finalUrl = submitResponse.request?.res?.responseUrl || BASE_FB_MOBILE_URL;
+            let submitResponse = null;
+            let responseText = '';
+            let finalUrl = '';
+
+            for (const endpoint of submitEndpoints) {
+                try {
+                    console.log(`Submitting to: ${endpoint}`);
+                    submitResponse = await session.post(endpoint, payload.toString(), {
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'Referer': BASE_FB_MOBILE_URL + '/reg/',
+                            'Origin': BASE_FB_MOBILE_URL,
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        timeout: 60000
+                    });
+
+                    if (submitResponse && submitResponse.data) {
+                        responseText = (typeof submitResponse.data === 'string') ? submitResponse.data : JSON.stringify(submitResponse.data);
+                        finalUrl = submitResponse.request?.res?.responseUrl || endpoint;
+                        console.log(`Submit success with: ${endpoint}`);
+                        break;
+                    }
+                } catch (err) {
+                    console.log(`Submit failed ${endpoint}:`, err.message);
+                    if (endpoint === submitEndpoints[submitEndpoints.length - 1]) {
+                        throw new Error('Failed to submit registration to all endpoints: ' + err.message);
+                    }
+                    continue;
+                }
+            }
+
+            if (!submitResponse) {
+                throw new Error('Registration submission failed - no response from Facebook');
+            }
 
             const currentCookies = await session.defaults.jar.getCookieString(finalUrl);
             const { uid, profileUrl } = await extractUidAndProfile(session.defaults.jar, responseText, finalUrl);
@@ -317,8 +393,22 @@ module.exports = {
             
             let errorMessage = `💥 CRITICAL ERROR!\n\n` +
                 `📧 Email: ${email}\n` +
-                `🔑 Generated Password: ${genPassword}\n` +
-                `❌ Error: ${error.message}`;
+                `👤 Name: ${genName.firstName} ${genName.lastName}\n` +
+                `🔑 Password: ${genPassword}\n\n` +
+                `❌ Error: ${error.message}\n\n`;
+            
+            // Add helpful suggestions based on error type
+            if (error.message.includes('blocking') || error.message.includes('failed')) {
+                errorMessage += `💡 Suggestions:\n` +
+                    `• Try using a proxy (add proxy after email)\n` +
+                    `• Facebook may be blocking automated requests\n` +
+                    `• Try again in a few minutes\n` +
+                    `• Use a VPN or different network`;
+            } else if (error.message.includes('timeout')) {
+                errorMessage += `💡 Suggestion: Network timeout - try again with a faster connection`;
+            } else if (error.message.includes('connect')) {
+                errorMessage += `💡 Suggestion: Cannot reach Facebook - check your internet connection`;
+            }
             
             api.sendMessage(errorMessage, threadID);
         }
