@@ -1,0 +1,17 @@
+services:
+  # Main bot service - runs login_instant.js with health check
+  - type: web
+    name: ws3fca-bot
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.11.0
+    # Health check endpoint
+    healthCheckPath: /health
+
