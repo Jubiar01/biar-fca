@@ -1,45 +1,8 @@
-# Exclude development and deployment files from npm package
-# Users installing via npm get only the library, not the full bot
-
-# Bot files (users should clone repo for these)
-server.js
-login.js
-login_safe.js
-login_instant.js
-appstate.json
-anti-detection.config.js
-
-# Directories
-public/
-cmd/
-tests/
-.cursor/
-.github/
-.git/
-.vercel/
-node_modules/
-
-# Deployment configs
-vercel.json
-render.yaml
-.replit
+# Exclude development and configuration files from npm package
+# This is a pure npm library - users get clean module + src only
 
 # Development files
-.editorconfig
-.eslintrc.js
-.prettierrc.json
-.prettierignore
-.nvmrc
-.nycrc.json
-jsdoc.json
-
-# Documentation (keep README.md, exclude guides)
-NPM_PUBLISH_GUIDE.md
-ANTI_DETECTION_GUIDE.md
-RENDER_DEPLOY.md
-CHANGELOG.md
-
-# Misc
+appstate.json
 *.log
 *.lock
 .DS_Store
@@ -47,8 +10,62 @@ CHANGELOG.md
 coverage/
 .nyc_output/
 
+# Git and version control
+.git/
+.github/
+.gitignore
+
+# Editor and IDE
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (keep README.md and LICENSE only)
+NPM_PUBLISH_GUIDE.md
+UPDATE_GUIDE.md
+ADVANCED_PROTECTION.md
+ANTI_DETECTION_GUIDE.md
+RENDER_DEPLOY.md
+CHANGELOG.md
+QUICK_START.txt
+
+# Configuration files
+.editorconfig
+.eslintrc.js
+.prettierrc.json
+.prettierignore
+.nvmrc
+.nycrc.json
+.replit
+jsdoc.json
+anti-detection.config.js
+
+# Deployment configs (not needed for npm package)
+vercel.json
+render.yaml
+
+# Node modules (users will install their own)
+node_modules/
+
+# Test files (users don't need these)
+tests/
+test/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+
+# Misc
+wiegine.png
+
 # Keep these files in package:
 !README.md
 !LICENSE-MIT
 !module/**
 !src/**
+!package.json

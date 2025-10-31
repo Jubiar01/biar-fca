@@ -1,8 +1,11 @@
 # 🚘 biar-fca
 
-![Image](wiegine.png)
+[![npm version](https://img.shields.io/npm/v/biar-fca.svg)](https://www.npmjs.com/package/biar-fca)
+[![npm downloads](https://img.shields.io/npm/dm/biar-fca.svg)](https://www.npmjs.com/package/biar-fca)
 
 💁 **biar-fca** is a fully refactored Facebook Chat API (FCA) client built for **reliable**, **real-time**, and **modular** interaction with Facebook Messenger. Designed with modern bot development in mind, it offers full control over Messenger automation through a clean, stable interface.
+
+**Pure NPM Package** - Just `npm install biar-fca` and start building with built-in advanced anti-detection!
 
 > 🔀 **Forked from [ws3-fca](https://github.com/Irfan430/ws3fca)** - Enhanced and maintained by Jubiar
 
@@ -117,51 +120,51 @@ login(credentials, {
 });
 ```
 
-### 🚀 Full Bot with Commands
+### 🚀 Building Your Bot
 
-For a complete bot implementation with command handling, use the included `login.js` file:
+Create your bot file (e.g., `bot.js`):
 
-```bash
-node login.js
+```js
+const { login } = require("biar-fca");
+const fs = require("fs");
+
+const credentials = {
+  appState: JSON.parse(fs.readFileSync("appstate.json", "utf8"))
+};
+
+login(credentials, {
+  advancedProtection: true,  // Automatic protection
+  updatePresence: true,
+  autoMarkRead: true
+}, (err, api) => {
+  if (err) return console.error(err);
+  
+  console.log("✅ Bot online with protection!");
+  
+  api.listenMqtt((err, event) => {
+    if (err) return console.error(err);
+    if (event.type !== "message") return;
+    
+    // Handle messages
+    console.log("Message:", event.body);
+    api.sendMessage("Hello!", event.threadID);
+  });
+});
 ```
 
-This provides:
-- Command system from `cmd/` folder
-- Advanced health monitoring
-- Connection quality tracking
-- Account risk assessment
-- Real-time traffic analysis
+Then run: `node bot.js`
 
 ---
 
 ## 🚀 Getting Started
 
-### Two Ways to Use biar-fca
-
-#### Option 1: As an NPM Package (Library)
-Install and use biar-fca as a library in your own projects:
+### 1. Install via NPM
 
 ```bash
-npm i biar-fca@latest
+npm install biar-fca
 ```
 
-Then use it in your code (see Basic Usage Example below).
-
-#### Option 2: Clone & Run (Recommended - With Enhanced Protection)
-For the full bot with enhanced protection features, clone the repository:
-
-```bash
-git clone https://github.com/yourusername/biar-fca.git
-cd biar-fca
-npm install
-node login.js
-```
-
-> 💡 **Note**: The npm package contains only the core library. For the complete bot with `login.js` and all protection features, you must clone the GitHub repository.
-
----
-
-### 1. Generate `appstate.json`
+### 2. Generate `appstate.json`
 
 This file contains your Facebook session cookies.
 Use a browser extension (e.g. "C3C FbState", "CookieEditor") to export cookies after logging in, and save them in this format:
@@ -181,7 +184,7 @@ Place this file in the root directory as `appstate.json`.
 
 ---
 
-### 2. Basic Usage Example
+### 3. Basic Usage Example
 
 ```js
 const fs = require("fs");
@@ -252,12 +255,13 @@ login(credentials, {
 
 ## 📝 Changelog
 
-### Version 3.6.0 - November 1, 2025
+### Version 3.6.1 - November 1, 2025
 
-#### 🎉 Major Update: Built-in Advanced Protection
+#### 🎉 Major Update: Pure NPM Package with Built-in Protection
 
 #### ✨ New Features
-- **Integrated Anti-Detection System** - Advanced protection now built directly into the core library!
+- **Pure NPM Package** - Now exclusively distributed via npm for cleaner installation
+- **Integrated Anti-Detection System** - Advanced protection built directly into core library!
 - **Session Fingerprint Management** - Automatic 6-hour session rotation with realistic browser fingerprints
 - **Request Obfuscation Layer** - Multi-layer obfuscation with cryptographic entropy injection
 - **Pattern Diffusion System** - Adaptive delays prevent detectable bot patterns
@@ -272,17 +276,18 @@ login(credentials, {
 - Enhanced `login()` function with `advancedProtection` option (enabled by default)
 - Improved default options for realistic behavior (auto-mark delivery/read)
 - Better MQTT client configuration with jitter
-- All protection features work seamlessly with existing code
+- Cleaner package structure - only essential files included
 
 #### 🚀 Performance
 - Ultra-fast responses (50-200ms) with protection layers
-- No significant overhead from anti-detection features
+- No overhead from anti-detection features
 - Intelligent batching prevents spam detection
 
-#### 📦 For NPM Users
-- Simply upgrade: `npm update biar-fca`
-- Protection enabled automatically - no code changes needed!
-- Fully backward compatible
+#### 📦 Package Structure
+- **Removed**: Standalone bot files, web server, deployment configs
+- **Added**: Built-in protection in core library
+- **Result**: Clean, focused npm package
+- Simply: `npm install biar-fca` and start building!
 
 ---
 
@@ -336,9 +341,11 @@ login(credentials, {
 
 ---
 
-## 🔗 Related Projects
+## 🔗 Related Resources
 
+- **Original ws3-fca**: [https://github.com/Irfan430/ws3fca](https://github.com/Irfan430/ws3fca)
 - **Documentation**: [https://exocore-dev-docs-exocore.hf.space](https://exocore-dev-docs-exocore.hf.space)
+- **NPM Package**: [https://www.npmjs.com/package/biar-fca](https://www.npmjs.com/package/biar-fca)
 
 ---
 
@@ -356,7 +363,7 @@ For maintainers: To update and republish the package:
 # 1. Make your changes
 # 2. Update version
 npm version patch   # For bug fixes (3.5.2 → 3.5.3)
-npm version minor   # For new features (3.5.2 → 3.6.0)
+npm version minor   # For new features (3.5.2 → 3.6.1)
 npm version major   # For breaking changes (3.5.2 → 4.0.0)
 
 # 3. Publish

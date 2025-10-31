@@ -1,9 +1,9 @@
 {
   "name": "biar-fca",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "module": "commonjs",
   "types": "src/types/index.d.ts",
-  "description": "A node.js package for automating Facebook Messenger bot, and is one of the most advanced next-generation Facebook Chat API (FCA) - forked from ws3-fca by @NethWs3Dev & @ExocoreCommunity",
+  "description": "Advanced Facebook Chat API (FCA) library with built-in anti-detection protection. Pure npm package for building reliable Messenger bots - forked from ws3-fca",
   "main": "module/index.js",
   "files": [
     "module/",
