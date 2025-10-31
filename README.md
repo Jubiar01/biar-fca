@@ -78,46 +78,88 @@ npm i biar-fca@latest
 
 ---
 
-## 🛡️ Anti-Detection Bots
+## 🛡️ Advanced Anti-Detection Protection
 
-This repository includes **TWO advanced bot implementations** with different anti-detection strategies:
+**biar-fca** includes built-in advanced anti-detection protection in the core library!
 
-### 🐌 `login_safe.js` - Human Behavior Simulation
-**Strategy**: Mimics human typing and reading patterns
-- ✅ Typing delays (200-300 chars/min)
-- ✅ Reading time simulation
-- ✅ Sleep hours (11PM-7AM)
-- ✅ Random typos (3% chance)
-- ✅ Activity scheduling (peak/slow hours)
-- ⏱️ Response time: 2-10 seconds
+### ⚡ Protection Features (Automatically Enabled)
 
-**Use when**: Maximum safety is priority, you can tolerate delays
+When you use `biar-fca`, you automatically get:
 
-```bash
-node login_safe.js
+- 🔐 **Session Fingerprint Management** - Realistic browser fingerprints with 6hr auto-rotation
+- 🎭 **Request Obfuscation** - Multi-layer obfuscation with entropy injection
+- 🔀 **Pattern Diffusion** - Adaptive delays to prevent detectable patterns
+- 🛡️ **Traffic Analysis Resistance** - Timing jitter and variability
+- 📊 **Smart Rate Limiting** - Intelligent message pacing
+- 🔒 **MQTT Protection** - Obfuscated MQTT traffic
+- ⏱️ **Response Time** - 50-200ms with protection layers
+- 🆔 **Realistic Device IDs** - Generated from system hardware
+- 🌍 **Random User Agents** - Latest Chrome/Edge configurations
+
+### 📖 Using Advanced Protection
+
+```js
+const { login } = require("biar-fca");
+
+login(credentials, {
+  advancedProtection: true,    // Default: true (always enabled)
+  autoRotateSession: true,     // Default: true (6hr rotation)
+  randomUserAgent: true,       // Default: true (realistic UAs)
+  updatePresence: true,        // Maintain realistic presence
+  autoMarkDelivery: true,      // Realistic delivery receipts
+  autoMarkRead: true           // Realistic read receipts
+}, (err, api) => {
+  // Your bot code here
+  
+  // Check protection stats
+  const stats = api.getProtectionStats();
+  console.log('Protection Status:', stats);
+});
 ```
 
-### ⚡ `login.js` - Technical Obfuscation
-**Strategy**: Advanced cryptographic and traffic obfuscation
-- 🔐 Session fingerprint management (6hr rotation)
-- 🎭 Multi-layer request obfuscation
-- 🔀 Adaptive pattern diffusion
-- 🛡️ Traffic analysis resistance
-- 📊 Real-time account health monitoring
-- 🔒 MQTT traffic obfuscation
-- ⏱️ Response time: 50-200ms (instant)
+### 🚀 Full Bot with Commands
 
-**Use when**: You need speed + protection without human simulation
+For a complete bot implementation with command handling, use the included `login.js` file:
 
 ```bash
 node login.js
 ```
 
-📖 **Full comparison**: See [ANTI_DETECTION_GUIDE.md](ANTI_DETECTION_GUIDE.md)
+This provides:
+- Command system from `cmd/` folder
+- Advanced health monitoring
+- Connection quality tracking
+- Account risk assessment
+- Real-time traffic analysis
 
 ---
 
 ## 🚀 Getting Started
+
+### Two Ways to Use biar-fca
+
+#### Option 1: As an NPM Package (Library)
+Install and use biar-fca as a library in your own projects:
+
+```bash
+npm i biar-fca@latest
+```
+
+Then use it in your code (see Basic Usage Example below).
+
+#### Option 2: Clone & Run (Recommended - With Enhanced Protection)
+For the full bot with enhanced protection features, clone the repository:
+
+```bash
+git clone https://github.com/yourusername/biar-fca.git
+cd biar-fca
+npm install
+node login.js
+```
+
+> 💡 **Note**: The npm package contains only the core library. For the complete bot with `login.js` and all protection features, you must clone the GitHub repository.
+
+---
 
 ### 1. Generate `appstate.json`
 
@@ -160,7 +202,12 @@ login(credentials, {
   online: true,
   updatePresence: true,
   selfListen: false,
-  randomUserAgent: false
+  // Advanced Protection Features (enabled by default)
+  advancedProtection: true,     // Enable anti-detection features
+  autoRotateSession: true,       // Auto-rotate session fingerprints
+  randomUserAgent: true,         // Use realistic random user agents
+  autoMarkDelivery: true,        // Realistic message behavior
+  autoMarkRead: true             // Realistic read behavior
 }, async (err, api) => {
   if (err) return console.error("LOGIN ERROR:", err);
 
@@ -204,6 +251,40 @@ login(credentials, {
 ---
 
 ## 📝 Changelog
+
+### Version 3.6.0 - November 1, 2025
+
+#### 🎉 Major Update: Built-in Advanced Protection
+
+#### ✨ New Features
+- **Integrated Anti-Detection System** - Advanced protection now built directly into the core library!
+- **Session Fingerprint Management** - Automatic 6-hour session rotation with realistic browser fingerprints
+- **Request Obfuscation Layer** - Multi-layer obfuscation with cryptographic entropy injection
+- **Pattern Diffusion System** - Adaptive delays prevent detectable bot patterns
+- **Traffic Analysis Resistance** - Timing jitter and variability to resist detection
+- **Smart Rate Limiting** - Intelligent message pacing based on activity
+- **MQTT Protection** - Obfuscated MQTT traffic with random metadata
+- **Realistic Device IDs** - Hardware-based device ID generation
+- **Random User Agents** - Latest Chrome/Edge user agent configurations
+- **Protection Stats API** - New `api.getProtectionStats()` method
+
+#### 🔧 Improvements
+- Enhanced `login()` function with `advancedProtection` option (enabled by default)
+- Improved default options for realistic behavior (auto-mark delivery/read)
+- Better MQTT client configuration with jitter
+- All protection features work seamlessly with existing code
+
+#### 🚀 Performance
+- Ultra-fast responses (50-200ms) with protection layers
+- No significant overhead from anti-detection features
+- Intelligent batching prevents spam detection
+
+#### 📦 For NPM Users
+- Simply upgrade: `npm update biar-fca`
+- Protection enabled automatically - no code changes needed!
+- Fully backward compatible
+
+---
 
 ### Version 3.5.2 (biar-fca fork) - October 31, 2025
 
@@ -257,7 +338,6 @@ login(credentials, {
 
 ## 🔗 Related Projects
 
-- **Original ws3-fca**: [https://github.com/Irfan430/ws3fca](https://github.com/Irfan430/ws3fca)
 - **Documentation**: [https://exocore-dev-docs-exocore.hf.space](https://exocore-dev-docs-exocore.hf.space)
 
 ---
@@ -265,6 +345,28 @@ login(credentials, {
 ## 📊 License
 
 **MIT** – Free to use, modify, and distribute. Attribution appreciated.
+
+---
+
+## 🔄 Updating & Publishing
+
+For maintainers: To update and republish the package:
+
+```bash
+# 1. Make your changes
+# 2. Update version
+npm version patch   # For bug fixes (3.5.2 → 3.5.3)
+npm version minor   # For new features (3.5.2 → 3.6.0)
+npm version major   # For breaking changes (3.5.2 → 4.0.0)
+
+# 3. Publish
+npm publish
+
+# 4. Push to GitHub
+git push && git push --tags
+```
+
+📖 **Detailed guide**: See [UPDATE_GUIDE.md](UPDATE_GUIDE.md)
 
 ---
 
@@ -286,4 +388,4 @@ This project is not affiliated with, authorized, maintained, sponsored, or endor
 
 ---
 
-**Made with ❤️ by the biar-fca team**
+**Made with ❤️ by the biar-fca**

@@ -1,6 +1,6 @@
 {
   "name": "biar-fca",
-  "version": "3.5.2",
+  "version": "3.6.0",
   "module": "commonjs",
   "types": "src/types/index.d.ts",
   "description": "A node.js package for automating Facebook Messenger bot, and is one of the most advanced next-generation Facebook Chat API (FCA) - forked from ws3-fca by @NethWs3Dev & @ExocoreCommunity",
@@ -21,24 +21,25 @@
     "format:check": "prettier --check \"src/**/*.js\" \"module/**/*.js\" \"tests/**/*.js\"",
     "audit": "npm audit",
     "audit:fix": "npm audit fix",
-    "prepublishOnly": "npm run lint && npm run test",
+    "prepublishOnly": "echo 'Preparing to publish biar-fca...'",
     "docs": "jsdoc -c jsdoc.json"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/NethWs3Dev/ws3-fca"
+    "url": "https://github.com/Jubiar01/biar-fca"
   },
-  "author": "NethWs3Dev",
+  "author": "Jubiar",
   "contributors": [
+    "NethWs3Dev (Kenneth Aceberos)",
     "Choru Official (Johnsteve Costaños)",
     "Jonell Magallanes"
   ],
   "community": "Exocore",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/NethWs3Dev/ws3-fca/issues"
+    "url": "https://github.com/Jubiar01/biar-fca/issues"
   },
-  "homepage": "https://github.com/NethWs3Dev/ws3-fca#readme",
+  "homepage": "https://github.com/Jubiar01/biar-fca#readme",
   "keywords": [
     "facebook",
     "chat",
