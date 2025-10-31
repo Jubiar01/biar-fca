@@ -318,7 +318,7 @@ class MultiMessageHandler {
      */
     addMessage(threadID, message, callback) {
         // Get or create pending array
-        let pending = this.pendingMessages.get(threadID) || [];
+        const pending = this.pendingMessages.get(threadID) || [];
         pending.push(message);
         this.pendingMessages.set(threadID, pending);
         
