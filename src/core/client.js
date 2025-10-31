@@ -227,6 +227,193 @@ class PatternDiffuser {
 }
 
 /**
+ * Cookie Refresh Manager
+ * Maintains fresh cookies every 20 minutes to keep the bot online
+ */
+class CookieRefreshManager {
+    constructor(ctx, defaultFuncs, globalOptions) {
+        this.ctx = ctx;
+        this.defaultFuncs = defaultFuncs;
+        this.globalOptions = globalOptions;
+        this.refreshInterval = 1200000; // 20 minutes (20 * 60 * 1000)
+        this.isRefreshing = false;
+        this.refreshTimer = null;
+        this.lastRefresh = Date.now();
+        this.refreshCount = 0;
+        this.failureCount = 0;
+    }
+    
+    /**
+     * Start the cookie refresh cycle
+     */
+    start() {
+        if (this.refreshTimer) {
+            return; // Already running
+        }
+        
+        utils.log("🔄 Cookie Refresh Manager: STARTED (20min interval)");
+        
+        // Initial refresh after 30 seconds to allow bot to fully initialize
+        setTimeout(() => this.refreshCookies(), 30000);
+        
+        // Set up recurring refresh every 20 minutes
+        this.refreshTimer = setInterval(() => {
+            this.refreshCookies();
+        }, this.refreshInterval);
+    }
+    
+    /**
+     * Stop the cookie refresh cycle
+     */
+    stop() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+            utils.log("🛑 Cookie Refresh Manager: STOPPED");
+        }
+    }
+    
+    /**
+     * Refresh cookies by making a keep-alive request to Facebook
+     * Gets fresh cookies to maintain session and keep bot online
+     */
+    async refreshCookies() {
+        if (this.isRefreshing) {
+            return; // Prevent concurrent refreshes
+        }
+        
+        this.isRefreshing = true;
+        
+        try {
+            const now = Date.now();
+            const timeSinceLastRefresh = now - this.lastRefresh;
+            
+            // Make requests to refresh cookies and get fresh session data
+            // Use multiple endpoints to ensure comprehensive cookie refresh
+            const endpoints = [
+                'https://www.facebook.com/',
+                'https://www.facebook.com/ajax/bz',
+                'https://www.facebook.com/ajax/webstorage/process_keys/?state=0',
+                'https://www.facebook.com/home.php'
+            ];
+            
+            // Rotate through endpoints to avoid pattern detection
+            const endpoint = endpoints[this.refreshCount % endpoints.length];
+            
+            utils.log(`🔄 Refreshing cookies from ${endpoint.split('/')[3] || 'home'}...`);
+            
+            const response = await this.defaultFuncs.get(
+                endpoint,
+                this.ctx.jar,
+                null,
+                this.ctx,
+                { noRef: true }
+            );
+            
+            let cookiesUpdated = 0;
+            let tokensUpdated = false;
+            
+            // Update cookies from response - critical for maintaining session
+            if (response && response.headers && response.headers['set-cookie']) {
+                const cookies = response.headers['set-cookie'];
+                cookies.forEach(cookie => {
+                    if (cookie.indexOf('.facebook.com') > -1) {
+                        this.ctx.jar.setCookie(cookie, 'https://www.facebook.com');
+                        cookiesUpdated++;
+                    }
+                    const messengerCookie = cookie.replace(/domain=\.facebook\.com/, 'domain=.messenger.com');
+                    this.ctx.jar.setCookie(messengerCookie, 'https://www.messenger.com');
+                });
+            }
+            
+            // Update tokens if present in response - ensures valid authentication
+            if (response && response.body) {
+                const bodyStr = typeof response.body === 'string' ? response.body : JSON.stringify(response.body);
+                
+                // Try to extract DTSG token
+                const dtsgMatch = bodyStr.match(/"DTSGInitialData".*?"token":"([^"]+)"/);
+                if (dtsgMatch && dtsgMatch[1]) {
+                    this.ctx.fb_dtsg = dtsgMatch[1];
+                    tokensUpdated = true;
+                }
+                
+                // Also try alternate DTSG pattern
+                if (!tokensUpdated) {
+                    const altDtsgMatch = bodyStr.match(/DTSGInitialData"[^}]*"token":"([^"]+)"/);
+                    if (altDtsgMatch && altDtsgMatch[1]) {
+                        this.ctx.fb_dtsg = altDtsgMatch[1];
+                        tokensUpdated = true;
+                    }
+                }
+            }
+            
+            this.refreshCount++;
+            this.lastRefresh = now;
+            this.failureCount = 0; // Reset failure count on success
+            
+            // Log every refresh since it's every 20 minutes
+            if (this.globalOptions.logging !== false) {
+                const minutesAgo = Math.floor(timeSinceLastRefresh / 60000);
+                utils.log(`✅ Cookie refresh #${this.refreshCount} completed`);
+                utils.log(`   • Cookies updated: ${cookiesUpdated}`);
+                utils.log(`   • Tokens updated: ${tokensUpdated ? 'Yes' : 'No'}`);
+                utils.log(`   • Time since last: ${minutesAgo > 0 ? minutesAgo + 'min' : Math.floor(timeSinceLastRefresh / 1000) + 's'} ago`);
+                utils.log(`   • Next refresh in: 20 minutes`);
+            }
+            
+        } catch (error) {
+            this.failureCount++;
+            
+            if (this.globalOptions.logging !== false) {
+                utils.log(`⚠️  Cookie refresh failed (attempt ${this.failureCount}): ${error.message}`);
+            }
+            
+            // If we have too many failures, something might be wrong
+            if (this.failureCount >= 5) {
+                utils.log(`❌ Cookie refresh failed ${this.failureCount} times. Check your connection or session validity.`);
+            }
+        } finally {
+            this.isRefreshing = false;
+        }
+    }
+    
+    /**
+     * Get refresh statistics
+     */
+    getStats() {
+        return {
+            enabled: !!this.refreshTimer,
+            refreshCount: this.refreshCount,
+            failureCount: this.failureCount,
+            lastRefresh: new Date(this.lastRefresh).toISOString(),
+            timeSinceLastRefresh: Date.now() - this.lastRefresh,
+            refreshInterval: this.refreshInterval
+        };
+    }
+    
+    /**
+     * Update refresh interval (in milliseconds)
+     */
+    setRefreshInterval(intervalMs) {
+        if (intervalMs < 60000) {
+            utils.log('⚠️  Minimum refresh interval is 1 minute (60000ms)');
+            return;
+        }
+        
+        this.refreshInterval = intervalMs;
+        
+        // Restart with new interval if already running
+        if (this.refreshTimer) {
+            this.stop();
+            this.start();
+        }
+        
+        const minutes = Math.floor(intervalMs / 60000);
+        utils.log(`⏱️  Cookie refresh interval updated to ${minutes} minute${minutes > 1 ? 's' : ''}`);
+    }
+}
+
+/**
  * Enhanced API Wrapper with Anti-Detection
  * Wraps the API with protection layers
  */
@@ -291,18 +478,9 @@ class EnhancedAPI {
         
         // Wrap sendMessage with protection
         if (originalSendMessage) {
-            this.api.sendMessage = async (message, threadID, callback, messageID) => {
+            this.api.sendMessage = async (message, threadID, replyToMessage, isSingleUser) => {
                 return this.applyProtection(async () => {
-                    return new Promise((resolve, reject) => {
-                        originalSendMessage.call(this.api, message, threadID, (err, info) => {
-                            if (err) {
-                                if (callback) callback(err);
-                                return reject(err);
-                            }
-                            if (callback) callback(null, info);
-                            resolve(info);
-                        }, messageID);
-                    });
+                    return originalSendMessage.call(this.api, message, threadID, replyToMessage, isSingleUser);
                 }, threadID);
             };
         }
@@ -347,6 +525,8 @@ class EnhancedAPI {
  * @param {boolean} [options.advancedProtection=true] Enable advanced anti-detection features.
  * @param {boolean} [options.autoRotateSession=true] Automatically rotate session fingerprints.
  * @param {boolean} [options.randomUserAgent=true] Use random realistic user agents.
+ * @param {boolean} [options.cookieRefresh=true] Enable automatic cookie refresh to maintain bot online status.
+ * @param {number} [options.cookieRefreshInterval=1200000] Cookie refresh interval in milliseconds (default: 20 minutes).
  * @param {function} callback The callback function to be invoked upon login completion.
  * @returns {Promise<void>}
  */
@@ -393,6 +573,9 @@ async function login(credentials, options, callback) {
         advancedProtection: advancedProtection,
         autoRotateSession: options.autoRotateSession !== false,
         randomUserAgent: options.randomUserAgent !== false,
+        // Cookie refresh options
+        cookieRefresh: options.cookieRefresh !== false, // Default: true (auto-refresh cookies)
+        cookieRefreshInterval: options.cookieRefreshInterval || 1200000, // Default: 20 minutes (20 * 60 * 1000)
     };
     
     Object.assign(globalOptions, defaultOptions, options);
@@ -416,12 +599,51 @@ async function login(credentials, options, callback) {
                 return callback(loginError);
             }
             
+            // Store references
+            api = loginApi;
+            _ctx = loginApi.ctx;
+            _defaultFuncs = loginApi.defaultFuncs;
+            
+            // Initialize Cookie Refresh Manager
+            const cookieRefreshEnabled = options.cookieRefresh !== false; // Default: true
+            const cookieRefreshInterval = options.cookieRefreshInterval || 1200000; // Default: 20 minutes
+            let cookieRefreshManager = null;
+            
+            if (cookieRefreshEnabled) {
+                cookieRefreshManager = new CookieRefreshManager(_ctx, _defaultFuncs, globalOptions);
+                
+                // Start cookie refresh
+                cookieRefreshManager.start();
+                
+                // Add methods to API
+                loginApi.getCookieRefreshStats = () => cookieRefreshManager.getStats();
+                loginApi.stopCookieRefresh = () => cookieRefreshManager.stop();
+                loginApi.startCookieRefresh = () => cookieRefreshManager.start();
+                loginApi.setCookieRefreshInterval = (intervalMs) => cookieRefreshManager.setRefreshInterval(intervalMs);
+                
+                // Log cookie refresh info
+                if (options.logging !== false) {
+                    const minutes = Math.floor(cookieRefreshInterval / 60000);
+                    utils.log("🔄 Cookie Refresh: ENABLED");
+                    utils.log(`   Interval: ${minutes} minute${minutes > 1 ? 's' : ''} (${cookieRefreshInterval}ms)`);
+                    utils.log(`   First refresh: in 30 seconds`);
+                }
+            }
+            
             // Wrap API with enhanced protection
             if (advancedProtection) {
                 const enhancedApi = new EnhancedAPI(loginApi, true);
                 
                 // Add getProtectionStats method
-                loginApi.getProtectionStats = () => enhancedApi.getProtectionStats();
+                loginApi.getProtectionStats = () => {
+                    const protectionStats = enhancedApi.getProtectionStats();
+                    const cookieStats = cookieRefreshManager ? cookieRefreshManager.getStats() : { enabled: false };
+                    
+                    return {
+                        ...protectionStats,
+                        cookieRefresh: cookieStats
+                    };
+                };
                 
                 // Log protection info
                 if (options.logging !== false) {
@@ -431,10 +653,6 @@ async function login(credentials, options, callback) {
                     utils.log(`   Device ID: ${stats.deviceID}`);
                 }
             }
-            
-            api = loginApi;
-            _ctx = loginApi.ctx;
-            _defaultFuncs = loginApi.defaultFuncs;
             
             return callback(null, loginApi);
         },
