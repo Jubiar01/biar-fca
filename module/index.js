@@ -1,6 +1,7 @@
 "use strict";
 
 const { login } = require('../src/core/client');
+const BotManager = require('../src/core/botManager');
 
 /**
  * biar-fca - Facebook Chat API
@@ -10,10 +11,10 @@ const { login } = require('../src/core/client');
  * and much more through a clean, promise-based interface.
  * 
  * @module biar-fca
- * @author NethWs3Dev (original)
+ * @author NethWs3Dev (original), Jubiar (current maintainer)
  * @license MIT
  * 
- * @example
+ * @example Single Account
  * const { login } = require('biar-fca');
  * const fs = require('fs');
  * 
@@ -27,6 +28,21 @@ const { login } = require('../src/core/client');
  *     console.log(`Message sent with ID: ${info.messageID}`);
  *   });
  * });
+ * 
+ * @example Multi-Account Support (v3.6.8+)
+ * const { BotManager } = require('biar-fca');
+ * 
+ * const manager = new BotManager();
+ * 
+ * await manager.addBot('bot1', { appState: appState1 });
+ * await manager.addBot('bot2', { appState: appState2 });
+ * 
+ * manager.on('message', ({ botId, event }) => {
+ *   console.log(`Bot ${botId} received: ${event.body}`);
+ * });
+ * 
+ * // Broadcast to all bots
+ * await manager.broadcast('Hello from all accounts!', threadID);
  */
 
-module.exports = { login };
+module.exports = { login, BotManager };

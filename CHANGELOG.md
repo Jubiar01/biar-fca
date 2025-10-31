@@ -7,6 +7,185 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.6.8] - 2025-10-31
+
+### 🎉 New Feature: Multi-Account Support
+
+This release adds comprehensive multi-account management, allowing you to manage multiple Facebook bot accounts simultaneously from a single application!
+
+### ✨ Added
+
+- **BotManager Class** - Manage multiple bot accounts with ease
+  - Add/remove bots dynamically
+  - Monitor all bots from a single interface
+  - Broadcast messages to all accounts
+  - Individual bot statistics and health monitoring
+  - Event-driven architecture with EventEmitter
+
+- **Multi-Account Features**
+  - Manage unlimited bot accounts simultaneously
+  - Each bot runs independently with own keep-alive system
+  - Centralized message handling across all accounts
+  - Individual bot configuration per account
+  - Bot restart and recovery capabilities
+
+- **New API Methods**
+  - `manager.addBot(botId, credentials, options)` - Add new bot account
+  - `manager.removeBot(botId)` - Remove bot account
+  - `manager.getBot(botId)` - Get specific bot
+  - `manager.getAllBots()` - Get all bots
+  - `manager.sendMessage(botId, message, threadID)` - Send from specific bot
+  - `manager.broadcast(message, threadID)` - Broadcast to all bots
+  - `manager.getStats()` - Get comprehensive statistics
+  - `manager.getHealthStatus()` - Get health status of all bots
+  - `manager.restartBot(botId)` - Restart specific bot
+  - `manager.restartAll()` - Restart all bots
+  - `manager.stopAll()` - Stop all bots gracefully
+
+- **Event System**
+  - `botAdded` - Fired when new bot is added
+  - `botRemoved` - Fired when bot is removed
+  - `botError` - Fired when bot encounters error
+  - `message` - Fired when any bot receives message
+  - `error` - Fired on general errors
+  - `allStopped` - Fired when all bots are stopped
+
+- **Statistics Tracking**
+  - Total bots managed
+  - Active/inactive bot count
+  - Total messages received/sent across all bots
+  - Per-bot statistics and activity tracking
+  - Uptime tracking for manager and individual bots
+  - Error tracking and reporting
+
+### 📖 Usage Examples
+
+**Basic Multi-Account Setup:**
+```javascript
+const { BotManager } = require('biar-fca');
+
+const manager = new BotManager({
+  advancedProtection: true,
+  cookieRefresh: true
+});
+
+// Add multiple bots
+await manager.addBot('bot1', { appState: appState1 });
+await manager.addBot('bot2', { appState: appState2 });
+await manager.addBot('bot3', { appState: appState3 });
+
+// Listen to all messages
+manager.on('message', ({ botId, bot, event }) => {
+  console.log(`Bot ${botId} received: ${event.body}`);
+  
+  // Respond from the same bot
+  manager.sendMessage(botId, 'Reply!', event.threadID);
+});
+
+// Broadcast message
+await manager.broadcast('System announcement!', threadID);
+
+// Get statistics
+const stats = manager.getStats();
+console.log(`Managing ${stats.totalBots} bots`);
+console.log(`Total messages: ${stats.totalMessagesReceived}`);
+```
+
+**Health Monitoring:**
+```javascript
+// Check health of all bots
+const health = manager.getHealthStatus();
+console.log(`Healthy: ${health.healthy}, Unhealthy: ${health.unhealthy}`);
+
+health.bots.forEach(bot => {
+  if (!bot.healthy) {
+    console.log(`Bot ${bot.id} is ${bot.status}`);
+    // Restart unhealthy bot
+    manager.restartBot(bot.id);
+  }
+});
+```
+
+**Dynamic Bot Management:**
+```javascript
+// Add bot with custom options
+await manager.addBot('specialBot', 
+  { appState: appState },
+  { 
+    cookieRefreshInterval: 600000, // 10 minutes
+    updatePresence: false
+  }
+);
+
+// Remove bot when done
+manager.removeBot('specialBot');
+
+// Restart all bots
+await manager.restartAll();
+```
+
+### 🔧 Technical Details
+
+**Architecture:**
+- Each bot runs independently with its own MQTT connection
+- Centralized event handling through EventEmitter
+- Keep-alive system runs per bot (cookie refresh + MQTT pings)
+- Graceful shutdown with cleanup for all connections
+- Thread-safe bot management
+
+**Performance:**
+- Efficient memory usage per bot
+- Non-blocking async operations
+- Event-driven message handling
+- Minimal overhead for multi-account management
+
+### 💡 Benefits
+
+- ✅ **Manage unlimited accounts** from single application
+- ✅ **Independent operation** - one bot failure doesn't affect others
+- ✅ **Centralized logging** - monitor all bots in one place
+- ✅ **Easy scaling** - add/remove bots dynamically
+- ✅ **Broadcast capabilities** - send messages from all accounts
+- ✅ **Health monitoring** - track status of all bots
+- ✅ **Statistics tracking** - comprehensive metrics per bot and overall
+
+### 🔄 Migration Notes
+
+**Existing Single-Account Bots:**
+No changes required! Your existing code continues to work:
+```javascript
+const { login } = require('biar-fca');
+// Your existing code works as before
+```
+
+**Upgrading to Multi-Account:**
+```javascript
+// Old way (still works)
+const { login } = require('biar-fca');
+
+// New way (v3.6.8+)
+const { BotManager } = require('biar-fca');
+const manager = new BotManager();
+```
+
+### 📦 What's Included
+
+- ✅ `src/core/botManager.js` - Multi-account manager class
+- ✅ Exported from main module
+- ✅ Full TypeScript definitions (coming soon)
+- ✅ Comprehensive documentation
+- ✅ Example implementations
+
+### 🎯 Use Cases
+
+- **Customer Support** - Manage multiple support accounts
+- **Marketing** - Run multiple promotional campaigns
+- **Testing** - Test interactions between multiple accounts
+- **Load Distribution** - Distribute workload across accounts
+- **Backup/Redundancy** - Fallback to other accounts if one fails
+
+---
+
 ## [3.6.7] - 2025-10-31
 
 ### 🐛 Critical Bug Fix
