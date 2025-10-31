@@ -19,12 +19,12 @@ const MQTT_TOPICS = [
 ];
 
 const MQTT_CONFIG = {
-    KEEPALIVE_INTERVAL: 10,
+    KEEPALIVE_INTERVAL: 60, // Increased to 60 seconds for better stability
     CONNECT_TIMEOUT: 60000,
-    RECONNECT_PERIOD: 1000,
+    RECONNECT_PERIOD: 3000, // Increased to 3 seconds for more stable reconnections
     PRESENCE_UPDATE_INTERVAL: 50000,
-    MIN_RECONNECT_TIME: 26 * 60 * 1000, // 26 minutes
-    MAX_RECONNECT_TIME: 60 * 60 * 1000, // 1 hour
+    MIN_RECONNECT_TIME: 2 * 60 * 60 * 1000, // 2 hours - increased from 26 minutes
+    MAX_RECONNECT_TIME: 4 * 60 * 60 * 1000, // 4 hours - increased from 1 hour
     PROTOCOL_VERSION: 3,
     QOS_LEVEL: 1
 };
@@ -549,8 +549,10 @@ module.exports = (defaultFuncs, api, ctx) => {
          */
         async function scheduleReconnect() {
             const time = getRandomReconnectTime();
-            const minutes = Math.floor(time / 60000);
-            utils.log(`🔄 Scheduled reconnect in ${minutes} minutes (${time}ms)`);
+            const hours = Math.floor(time / 3600000);
+            const minutes = Math.floor((time % 3600000) / 60000);
+            const timeStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes} minutes`;
+            utils.log(`🔄 Scheduled reconnect in ${timeStr} (${time}ms)`);
             
             reconnectInterval = setTimeout(() => {
                 utils.log("⏰ Reconnecting MQTT with new clientID...");

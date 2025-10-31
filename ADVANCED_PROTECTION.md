@@ -1,6 +1,6 @@
 # 🛡️ Advanced Anti-Detection Protection - Built-in!
 
-## 🎉 Major Upgrade: Version 3.6.1
+## 🎉 Major Upgrade: Version 3.6.2
 
 **biar-fca** now includes enterprise-grade anti-detection protection **built directly into the core library**! 
 
@@ -19,7 +19,7 @@ login(credentials, {}, (err, api) => {
 });
 ```
 
-### **After (Version 3.6.1)**
+### **After (Version 3.6.2)**
 ```js
 const { login } = require("biar-fca");
 
@@ -245,7 +245,7 @@ console.log(stats);
 
 ### **NPM Package Users**
 
-| Feature | v3.5.2 | v3.6.1 |
+| Feature | v3.5.2 | v3.6.2 |
 |---------|--------|--------|
 | Session Fingerprinting | ❌ | ✅ |
 | Request Obfuscation | ❌ | ✅ |
@@ -257,7 +257,7 @@ console.log(stats);
 
 ### **GitHub Repo Users**
 
-| Feature | login.js (standalone) | core library (v3.6.1) |
+| Feature | login.js (standalone) | core library (v3.6.2) |
 |---------|----------------------|----------------------|
 | All Protection Features | ✅ | ✅ |
 | Command System | ✅ | ➖ (DIY) |
@@ -300,7 +300,7 @@ console.log(stats);
 
 ---
 
-## 🔄 Upgrading to v3.6.1
+## 🔄 Upgrading to v3.6.2
 
 ### **For NPM Users**
 
@@ -309,7 +309,7 @@ console.log(stats);
 npm update biar-fca
 
 # Or install specific version
-npm install biar-fca@3.6.1
+npm install biar-fca@3.6.2
 ```
 
 **No code changes needed!** Protection is automatic.
@@ -462,13 +462,13 @@ Success!
 
 - **Full documentation**: [README.md](README.md)
 - **Update guide**: [UPDATE_GUIDE.md](UPDATE_GUIDE.md)
-- **Original ws3-fca**: [https://github.com/Irfan430/ws3fca](https://github.com/Irfan430/ws3fca)
+- **Original ws3-fca**: [https://github.com/NethWs3Dev/ws3-fca](https://github.com/NethWs3Dev/ws3-fca)
 
 ---
 
 ## ✅ Summary
 
-**Version 3.6.1** brings enterprise-grade anti-detection protection to **every** biar-fca user!
+**Version 3.6.2** brings enterprise-grade anti-detection protection to **every** biar-fca user!
 
 ### **Key Takeaways:**
 

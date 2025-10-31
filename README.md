@@ -26,7 +26,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-**Latest:** v3.6.4 - Fixed critical sendMessage wrapper bug
+**Latest:** v3.6.6 - Major keep-alive system overhaul with MQTT keep-alive pings! Bot stays online indefinitely 🎉
 
 ---
 
@@ -104,7 +104,7 @@ When you use `biar-fca`, you automatically get:
 - ⏱️ **Response Time** - 50-200ms with protection layers
 - 🆔 **Realistic Device IDs** - Generated from system hardware
 - 🌍 **Random User Agents** - Latest Chrome/Edge configurations
-- 🔄 **Auto Cookie Refresh** - Fresh cookies every 20min to maintain bot online
+- 🔄 **Auto Cookie Refresh** - Fresh cookies every 20min + MQTT keep-alive every 30s
 
 ### 📖 Using Advanced Protection
 
@@ -169,17 +169,25 @@ Then run: `node bot.js`
 
 ---
 
-## 🔄 Cookie Refresh Feature
+## 🔄 Keep-Alive System (v3.6.6+)
 
-**NEW!** Automatic cookie refresh to keep your bot online with fresh cookies every 20 minutes.
+**ENHANCED!** Dual keep-alive system ensures your bot stays online indefinitely!
 
 ### How It Works
 
-The Cookie Refresh Manager automatically makes requests to Facebook every 20 minutes to:
-- Refresh authentication cookies with fresh values
-- Update session tokens (DTSG) for valid authentication
-- Maintain online presence and active session
-- Prevent session expiration and disconnections
+The Keep-Alive System uses two complementary mechanisms:
+
+**1. Cookie Refresh (Every 20 minutes)**
+- Refreshes authentication cookies with fresh values
+- Updates session tokens (DTSG) for valid authentication
+- Maintains authentication validity
+- Prevents session expiration
+
+**2. MQTT Keep-Alive Pings (Every 30 seconds)**
+- Sends presence updates through MQTT connection
+- Keeps WebSocket connection active
+- Prevents connection timeout
+- Monitors connection health with failure tracking
 
 ### Configuration
 
@@ -195,7 +203,7 @@ login(credentials, {
 ### API Methods
 
 ```js
-// Get cookie refresh statistics
+// Get comprehensive keep-alive statistics
 const stats = api.getCookieRefreshStats();
 console.log(stats);
 // {
@@ -204,7 +212,15 @@ console.log(stats);
 //   failureCount: 0,
 //   lastRefresh: "2025-10-31T12:34:56.789Z",
 //   timeSinceLastRefresh: 234567,
-//   refreshInterval: 1200000
+//   refreshInterval: 1200000,
+//   mqttKeepAlive: {
+//     enabled: true,
+//     pingCount: 240,
+//     pingFailures: 0,
+//     lastPing: "2025-10-31T12:34:55.123Z",
+//     timeSinceLastPing: 1234,
+//     pingInterval: 30000
+//   }
 // }
 
 // Control cookie refresh
@@ -216,23 +232,30 @@ api.setCookieRefreshInterval(600000);     // Change to 10 minutes
 
 ### Benefits
 
-✅ **Maintains Online Status** - Bot stays active and responsive 24/7  
-✅ **Prevents Session Expiration** - Fresh cookies keep session alive  
+✅ **Indefinite Uptime** - Bot stays online for days/weeks without disconnecting  
+✅ **Dual Protection** - Both HTTP and WebSocket layers maintained  
+✅ **Prevents Session Expiration** - Fresh cookies keep authentication valid  
+✅ **Prevents Connection Timeout** - MQTT pings keep WebSocket active  
 ✅ **Automatic & Silent** - Works in background without interruption  
-✅ **Configurable** - Adjust interval from 1min to any duration (default 20min)  
-✅ **Statistics** - Track refresh count and success rate with detailed logs  
-✅ **Anti-Detection** - Rotates through 4 different Facebook endpoints  
+✅ **Configurable** - Adjust intervals to suit your needs  
+✅ **Comprehensive Stats** - Track both cookie refresh and MQTT ping health  
+✅ **Anti-Detection** - Cookie refresh rotates through 4 different endpoints  
 ✅ **Token Updates** - Automatically refreshes DTSG tokens for valid auth  
-✅ **Smart Logging** - Detailed logs show cookies updated and tokens refreshed  
+✅ **Smart Logging** - Detailed logs without spam (MQTT logs every 5 minutes)  
+✅ **Failure Recovery** - Automatic retry and error handling  
 
-### Why 20 Minutes?
+### Why This Works
 
-20 minutes is the optimal interval because:
-- ✅ Frequent enough to keep session alive
-- ✅ Not too frequent to trigger rate limits
-- ✅ Mimics natural human browsing patterns
-- ✅ Reduces network overhead
-- ✅ Best balance for long-running bots
+**Cookie Refresh (20 minutes):**
+- Optimal balance between keeping session alive and avoiding rate limits
+- Mimics natural human browsing patterns
+- Reduces network overhead while maintaining validity
+
+**MQTT Keep-Alive (30 seconds):**
+- Prevents WebSocket idle timeout
+- More frequent than cookie refresh to maintain active connection
+- Lightweight presence updates don't trigger rate limits
+- Complements cookie refresh for maximum uptime
 
 ---
 
@@ -335,108 +358,6 @@ login(credentials, {
 
 ---
 
-## 📝 Changelog
-
-### Version 3.6.3 - October 31, 2025
-
-#### 🎉 New Feature: Automatic Cookie Refresh
-
-#### ✨ New Features
-- **Auto Cookie Refresh** - Fresh cookies every 20 minutes to maintain bot online! 🔄
-- **Cookie Refresh Manager** - Intelligent background refresh system with comprehensive logging
-- **Configurable Interval** - Adjust refresh rate from 1min to any duration (default: 20min)
-- **Refresh Statistics** - Track refresh count, failures, and detailed timing
-- **Multiple Endpoints** - Rotates through 4 Facebook endpoints for anti-detection
-- **Token Updates** - Automatically refreshes DTSG tokens with dual pattern matching
-- **API Controls** - Start, stop, and configure refresh on-demand
-- **Smart Logging** - Detailed logs show cookies updated, tokens refreshed, and next refresh time
-
-#### 📊 New API Methods
-- `api.getCookieRefreshStats()` - Get refresh statistics
-- `api.stopCookieRefresh()` - Stop automatic refresh
-- `api.startCookieRefresh()` - Start automatic refresh
-- `api.setCookieRefreshInterval(ms)` - Change refresh interval
-
-#### 🔧 Improvements
-- Enhanced cookie management for longer sessions (20min refresh cycle)
-- Better session persistence and stability with comprehensive token updates
-- Reduced disconnection rate with intelligent endpoint rotation
-- Improved online status maintenance with detailed refresh logging
-- Optimized refresh interval (20 minutes) for best balance between keeping alive and avoiding rate limits
-- Dual DTSG token pattern matching for higher success rate
-- Smart logging with detailed information per refresh cycle
-
----
-
-### Version 3.6.2 - October 31, 2025
-
-#### 🎉 Major Update: Pure NPM Package with Built-in Protection
-
-#### ✨ New Features
-- **Pure NPM Package** - Now exclusively distributed via npm for cleaner installation
-- **Integrated Anti-Detection System** - Advanced protection built directly into core library!
-- **Session Fingerprint Management** - Automatic 6-hour session rotation with realistic browser fingerprints
-- **Request Obfuscation Layer** - Multi-layer obfuscation with cryptographic entropy injection
-- **Pattern Diffusion System** - Adaptive delays prevent detectable bot patterns
-- **Traffic Analysis Resistance** - Timing jitter and variability to resist detection
-- **Smart Rate Limiting** - Intelligent message pacing based on activity
-- **MQTT Protection** - Obfuscated MQTT traffic with random metadata
-- **Realistic Device IDs** - Hardware-based device ID generation
-- **Random User Agents** - Latest Chrome/Edge user agent configurations
-- **Protection Stats API** - New `api.getProtectionStats()` method
-
-#### 🔧 Improvements
-- Enhanced `login()` function with `advancedProtection` option (enabled by default)
-- Improved default options for realistic behavior (auto-mark delivery/read)
-- Better MQTT client configuration with jitter
-- Cleaner package structure - only essential files included
-
-#### 🚀 Performance
-- Ultra-fast responses (50-200ms) with protection layers
-- No overhead from anti-detection features
-- Intelligent batching prevents spam detection
-
-#### 📦 Package Structure
-- **Removed**: Standalone bot files, web server, deployment configs
-- **Added**: Built-in protection in core library
-- **Result**: Clean, focused npm package
-- Simply: `npm install biar-fca` and start building!
-
----
-
-### Version 3.5.2 (biar-fca fork) - October 31, 2025
-
-#### 🎉 Fork Announcement
-- **biar-fca** forked from [ws3-fca](https://github.com/NethWs3Dev/ws3-fca)
-- New maintainer: **Jubiar**
-
-#### ✨ New Features
-- Added web-based bot management interface
-- Integrated proxy testing utilities with batch testing support
-- Added API health monitoring endpoint
-- Implemented real-time bot status tracking
-
-#### 🔧 Improvements
-- Enhanced server.js with Express-based HTTP server
-- Added proxy validation and testing endpoints
-- Improved error handling and logging
-- Better deployment support for Vercel and Render
-
-#### 🗑️ Removed Features
-- Removed Facebook account creation functionality (fbcreate.js)
-- Cleaned up unused dependencies and routes
-
-#### 🐛 Bug Fixes
-- Fixed module loading errors
-- Resolved proxy configuration issues
-- Improved stability and error recovery
-
-#### 📦 Package Changes
-- Renamed package from `ws3-fca` to `biar-fca`
-- Updated all internal references and documentation
-- Maintained backward compatibility with ws3-fca API
-
----
 
 ## 🙌 Credits
 
