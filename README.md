@@ -26,7 +26,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-**Latest:** v3.6.6 - Major keep-alive system overhaul with MQTT keep-alive pings! Bot stays online indefinitely 🎉
+**Latest:** v3.6.7 - Critical bug fix for v3.6.6 startup error (now stable and working!) 🎉
 
 ---
 

@@ -222,19 +222,6 @@ class PatternDiffuser {
     recordMessage(threadID) {
         const pattern = this.patterns.get(threadID) || [];
         pattern.push(Date.now());
-        this.refreshCount = 0;
-        this.mqttPingCount = 0;
-        this.failureCount = 0;
-        this.mqttPingFailures = 0;
-    }
-    
-    /**
-     * Start the cookie refresh cycle and MQTT keep-alive pings
-     */
-    start() {
-        if (this.refreshTimer) {
-            return; // Already running
-        }
         this.patterns.set(threadID, pattern);
     }
 }
@@ -256,6 +243,19 @@ class CookieRefreshManager {
         this.mqttPingTimer = null;
         this.lastRefresh = Date.now();
         this.lastMqttPing = Date.now();
+        this.refreshCount = 0;
+        this.mqttPingCount = 0;
+        this.failureCount = 0;
+        this.mqttPingFailures = 0;
+    }
+    
+    /**
+     * Start the cookie refresh cycle and MQTT keep-alive pings
+     */
+    start() {
+        if (this.refreshTimer) {
+            return; // Already running
+        }
         
         utils.log("🔄 Cookie Refresh Manager: STARTED");
         utils.log("   • Cookie refresh: Every 20 minutes");

@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.6.7] - 2025-10-31
+
+### 🐛 Critical Bug Fix
+
+This release fixes a critical bug introduced in v3.6.6 that prevented the bot from starting.
+
+### Fixed
+
+- **Critical**: `cookieRefreshManager.start is not a function` error
+  - Root cause: CookieRefreshManager class was corrupted during code merge in v3.6.6
+  - Constructor was missing proper initialization of counter variables
+  - `start()` method was misplaced and mixed with PatternDiffuser class code
+  - Fixed class structure with proper constructor and method separation
+
+- **Critical**: `attempt NaN` in cookie refresh logs
+  - Root cause: `refreshCount`, `mqttPingCount`, `failureCount`, and `mqttPingFailures` were not initialized
+  - Added all counter variables to constructor initialization
+  - Now properly tracks refresh attempts and failures
+
+- **Critical**: `Cannot read properties of undefined (reading 'split')`
+  - Root cause: Undefined variables causing errors in refresh cycle
+  - Fixed by ensuring all variables are initialized in constructor
+
+### Technical Details
+
+**What Was Broken in v3.6.6:**
+```javascript
+// Constructor was trying to auto-start (wrong)
+constructor(ctx, defaultFuncs, globalOptions) {
+    this.ctx = ctx;
+    // Missing: this.refreshCount = 0;
+    // Missing: this.mqttPingCount = 0;
+    // Missing: this.failureCount = 0;
+    // Missing: this.mqttPingFailures = 0;
+    
+    // Auto-starting timers in constructor (wrong)
+    this.refreshTimer = setInterval(...);
+    this.startMqttKeepAlive();
+}
+```
+
+**What's Fixed in v3.6.7:**
+```javascript
+// Proper initialization
+constructor(ctx, defaultFuncs, globalOptions) {
+    this.ctx = ctx;
+    this.defaultFuncs = defaultFuncs;
+    this.globalOptions = globalOptions;
+    this.refreshInterval = 1200000;
+    this.mqttPingInterval = 30000;
+    this.isRefreshing = false;
+    this.refreshTimer = null;
+    this.mqttPingTimer = null;
+    this.lastRefresh = Date.now();
+    this.lastMqttPing = Date.now();
+    this.refreshCount = 0;          // ✅ Now initialized
+    this.mqttPingCount = 0;         // ✅ Now initialized
+    this.failureCount = 0;          // ✅ Now initialized
+    this.mqttPingFailures = 0;      // ✅ Now initialized
+}
+
+// Separate start method (correct)
+start() {
+    if (this.refreshTimer) return;
+    
+    utils.log("🔄 Cookie Refresh Manager: STARTED");
+    // ... setup timers
+}
+```
+
+### Impact
+
+- v3.6.6 was **completely broken** - bot couldn't start at all
+- v3.6.7 **restores full functionality** of the keep-alive system
+- All features from v3.6.6 now work as intended:
+  - ✅ Cookie refresh every 20 minutes
+  - ✅ MQTT keep-alive pings every 30 seconds
+  - ✅ Comprehensive statistics tracking
+  - ✅ Automatic failure recovery
+
+### Migration from v3.6.6
+
+If you're on v3.6.6, **update immediately** to v3.6.7:
+
+```bash
+npm install biar-fca@3.6.7
+# or
+npm install biar-fca@latest
+```
+
+No code changes required - this is a drop-in fix for v3.6.6.
+
+### Recommendation
+
+- ⚠️ **Do not use v3.6.6** - it has critical startup errors
+- ✅ **Use v3.6.7** - all issues fixed, stable and tested
+
+---
+
 ## [3.6.6] - 2025-10-31
 
 ### 🎉 Major Keep-Alive System Overhaul
