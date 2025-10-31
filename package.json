@@ -1,15 +1,16 @@
 {
   "name": "biar-fca",
-  "version": "3.6.1",
+  "version": "3.6.4",
   "module": "commonjs",
   "types": "src/types/index.d.ts",
-  "description": "Advanced Facebook Chat API (FCA) library with built-in anti-detection protection. Pure npm package for building reliable Messenger bots - forked from ws3-fca",
+  "description": "Advanced Facebook Chat API (FCA) library with built-in anti-detection protection and automatic cookie refresh. Pure npm package for building reliable Messenger bots - forked from ws3-fca",
   "main": "module/index.js",
   "files": [
     "module/",
     "src/",
     "LICENSE-MIT",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "mocha tests/**/*.test.js --timeout 10000 --exit",

@@ -7,7 +7,7 @@
 
 **Pure NPM Package** - Just `npm install biar-fca` and start building with built-in advanced anti-detection!
 
-> 🔀 **Forked from [ws3-fca](https://github.com/Irfan430/ws3fca)** - Enhanced and maintained by Jubiar
+> 🔀 **Forked from [ws3-fca](https://github.com/NethWs3Dev/ws3-fca)** - Enhanced and maintained by Jubiar
 
 ---
 
@@ -21,6 +21,12 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 * [@Kenneth Aceberos](https://www.facebook.com/Neth.Ace.7/)
 * [@Johnsteve Costaños](https://www.facebook.com/johnstevecostanos2025/)
 * [@Jonell Magallanes 󱢏](https://www.facebook.com/ccprojectsjonell10/)
+
+## 📝 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
+
+**Latest:** v3.6.4 - Fixed critical sendMessage wrapper bug
 
 ---
 
@@ -98,6 +104,7 @@ When you use `biar-fca`, you automatically get:
 - ⏱️ **Response Time** - 50-200ms with protection layers
 - 🆔 **Realistic Device IDs** - Generated from system hardware
 - 🌍 **Random User Agents** - Latest Chrome/Edge configurations
+- 🔄 **Auto Cookie Refresh** - Fresh cookies every 20min to maintain bot online
 
 ### 📖 Using Advanced Protection
 
@@ -105,18 +112,24 @@ When you use `biar-fca`, you automatically get:
 const { login } = require("biar-fca");
 
 login(credentials, {
-  advancedProtection: true,    // Default: true (always enabled)
-  autoRotateSession: true,     // Default: true (6hr rotation)
-  randomUserAgent: true,       // Default: true (realistic UAs)
-  updatePresence: true,        // Maintain realistic presence
-  autoMarkDelivery: true,      // Realistic delivery receipts
-  autoMarkRead: true           // Realistic read receipts
+  advancedProtection: true,      // Default: true (always enabled)
+  autoRotateSession: true,       // Default: true (6hr rotation)
+  randomUserAgent: true,         // Default: true (realistic UAs)
+  cookieRefresh: true,           // Default: true (auto-refresh every 20min)
+  cookieRefreshInterval: 1200000,// Default: 1200000ms (20 minutes)
+  updatePresence: true,          // Maintain realistic presence
+  autoMarkDelivery: true,        // Realistic delivery receipts
+  autoMarkRead: true             // Realistic read receipts
 }, (err, api) => {
   // Your bot code here
   
-  // Check protection stats
+  // Check protection stats (includes cookie refresh stats)
   const stats = api.getProtectionStats();
   console.log('Protection Status:', stats);
+  
+  // Get cookie refresh stats
+  const cookieStats = api.getCookieRefreshStats();
+  console.log('Cookie Refresh:', cookieStats);
 });
 ```
 
@@ -153,6 +166,73 @@ login(credentials, {
 ```
 
 Then run: `node bot.js`
+
+---
+
+## 🔄 Cookie Refresh Feature
+
+**NEW!** Automatic cookie refresh to keep your bot online with fresh cookies every 20 minutes.
+
+### How It Works
+
+The Cookie Refresh Manager automatically makes requests to Facebook every 20 minutes to:
+- Refresh authentication cookies with fresh values
+- Update session tokens (DTSG) for valid authentication
+- Maintain online presence and active session
+- Prevent session expiration and disconnections
+
+### Configuration
+
+```js
+login(credentials, {
+  cookieRefresh: true,               // Enable/disable (default: true)
+  cookieRefreshInterval: 1200000,    // Interval in ms (default: 1200000 = 20min)
+}, (err, api) => {
+  // Your bot is now maintaining fresh cookies automatically every 20 minutes!
+});
+```
+
+### API Methods
+
+```js
+// Get cookie refresh statistics
+const stats = api.getCookieRefreshStats();
+console.log(stats);
+// {
+//   enabled: true,
+//   refreshCount: 12,
+//   failureCount: 0,
+//   lastRefresh: "2025-10-31T12:34:56.789Z",
+//   timeSinceLastRefresh: 234567,
+//   refreshInterval: 1200000
+// }
+
+// Control cookie refresh
+api.stopCookieRefresh();                  // Stop auto-refresh
+api.startCookieRefresh();                 // Start auto-refresh
+api.setCookieRefreshInterval(1800000);    // Change to 30 minutes
+api.setCookieRefreshInterval(600000);     // Change to 10 minutes
+```
+
+### Benefits
+
+✅ **Maintains Online Status** - Bot stays active and responsive 24/7  
+✅ **Prevents Session Expiration** - Fresh cookies keep session alive  
+✅ **Automatic & Silent** - Works in background without interruption  
+✅ **Configurable** - Adjust interval from 1min to any duration (default 20min)  
+✅ **Statistics** - Track refresh count and success rate with detailed logs  
+✅ **Anti-Detection** - Rotates through 4 different Facebook endpoints  
+✅ **Token Updates** - Automatically refreshes DTSG tokens for valid auth  
+✅ **Smart Logging** - Detailed logs show cookies updated and tokens refreshed  
+
+### Why 20 Minutes?
+
+20 minutes is the optimal interval because:
+- ✅ Frequent enough to keep session alive
+- ✅ Not too frequent to trigger rate limits
+- ✅ Mimics natural human browsing patterns
+- ✅ Reduces network overhead
+- ✅ Best balance for long-running bots
 
 ---
 
@@ -206,9 +286,11 @@ login(credentials, {
   updatePresence: true,
   selfListen: false,
   // Advanced Protection Features (enabled by default)
-  advancedProtection: true,     // Enable anti-detection features
+  advancedProtection: true,      // Enable anti-detection features
   autoRotateSession: true,       // Auto-rotate session fingerprints
   randomUserAgent: true,         // Use realistic random user agents
+  cookieRefresh: true,           // Auto-refresh cookies every 20min (NEW!)
+  cookieRefreshInterval: 1200000,// Refresh interval: 20 minutes (default)
   autoMarkDelivery: true,        // Realistic message behavior
   autoMarkRead: true             // Realistic read behavior
 }, async (err, api) => {
@@ -255,7 +337,38 @@ login(credentials, {
 
 ## 📝 Changelog
 
-### Version 3.6.1 - November 1, 2025
+### Version 3.6.3 - October 31, 2025
+
+#### 🎉 New Feature: Automatic Cookie Refresh
+
+#### ✨ New Features
+- **Auto Cookie Refresh** - Fresh cookies every 20 minutes to maintain bot online! 🔄
+- **Cookie Refresh Manager** - Intelligent background refresh system with comprehensive logging
+- **Configurable Interval** - Adjust refresh rate from 1min to any duration (default: 20min)
+- **Refresh Statistics** - Track refresh count, failures, and detailed timing
+- **Multiple Endpoints** - Rotates through 4 Facebook endpoints for anti-detection
+- **Token Updates** - Automatically refreshes DTSG tokens with dual pattern matching
+- **API Controls** - Start, stop, and configure refresh on-demand
+- **Smart Logging** - Detailed logs show cookies updated, tokens refreshed, and next refresh time
+
+#### 📊 New API Methods
+- `api.getCookieRefreshStats()` - Get refresh statistics
+- `api.stopCookieRefresh()` - Stop automatic refresh
+- `api.startCookieRefresh()` - Start automatic refresh
+- `api.setCookieRefreshInterval(ms)` - Change refresh interval
+
+#### 🔧 Improvements
+- Enhanced cookie management for longer sessions (20min refresh cycle)
+- Better session persistence and stability with comprehensive token updates
+- Reduced disconnection rate with intelligent endpoint rotation
+- Improved online status maintenance with detailed refresh logging
+- Optimized refresh interval (20 minutes) for best balance between keeping alive and avoiding rate limits
+- Dual DTSG token pattern matching for higher success rate
+- Smart logging with detailed information per refresh cycle
+
+---
+
+### Version 3.6.2 - October 31, 2025
 
 #### 🎉 Major Update: Pure NPM Package with Built-in Protection
 
@@ -294,7 +407,7 @@ login(credentials, {
 ### Version 3.5.2 (biar-fca fork) - October 31, 2025
 
 #### 🎉 Fork Announcement
-- **biar-fca** forked from [ws3-fca](https://github.com/Irfan430/ws3fca)
+- **biar-fca** forked from [ws3-fca](https://github.com/NethWs3Dev/ws3-fca)
 - New maintainer: **Jubiar**
 
 #### ✨ New Features
@@ -343,7 +456,7 @@ login(credentials, {
 
 ## 🔗 Related Resources
 
-- **Original ws3-fca**: [https://github.com/Irfan430/ws3fca](https://github.com/Irfan430/ws3fca)
+- **Original ws3-fca**: [https://github.com/NethWs3Dev/ws3-fca](https://github.com/NethWs3Dev/ws3-fca)
 - **Documentation**: [https://exocore-dev-docs-exocore.hf.space](https://exocore-dev-docs-exocore.hf.space)
 - **NPM Package**: [https://www.npmjs.com/package/biar-fca](https://www.npmjs.com/package/biar-fca)
 
@@ -363,7 +476,7 @@ For maintainers: To update and republish the package:
 # 1. Make your changes
 # 2. Update version
 npm version patch   # For bug fixes (3.5.2 → 3.5.3)
-npm version minor   # For new features (3.5.2 → 3.6.1)
+npm version minor   # For new features (3.5.2 → 3.6.2)
 npm version major   # For breaking changes (3.5.2 → 4.0.0)
 
 # 3. Publish
