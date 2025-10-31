@@ -1,9 +1,9 @@
 {
-  "name": "ws3-fca",
+  "name": "biar-fca",
   "version": "3.5.2",
   "module": "commonjs",
   "types": "src/types/index.d.ts",
-  "description": "A node.js package for automating Facebook Messenger bot, and is one of the most advanced next-generation Facebook Chat API (FCA) by @NethWs3Dev & @ExocoreCommunity",
+  "description": "A node.js package for automating Facebook Messenger bot, and is one of the most advanced next-generation Facebook Chat API (FCA) - forked from ws3-fca by @NethWs3Dev & @ExocoreCommunity",
   "main": "module/index.js",
   "files": [
     "module/",
@@ -44,13 +44,14 @@
     "chat",
     "api",
     "fca",
-    "ws3",
-    "ws3-chat-api",
-    "ws3-fca",
+    "biar",
+    "biar-chat-api",
+    "biar-fca",
     "exocore",
     "nextgen"
   ],
   "dependencies": {
+    "@faker-js/faker": "^10.1.0",
     "axios": "^1.9.0",
     "axios-cookiejar-support": "^4.0.7",
     "chalk": "^3.0.0",
@@ -67,6 +68,7 @@
     "node-cron": "^3.0.3",
     "tough-cookie": "^5.1.2",
     "undici": "^5.29.0",
+    "user-agents": "^1.1.669",
     "websocket-stream": "^5.5.0"
   },
   "devDependencies": {

@@ -438,7 +438,7 @@ function _formatAttachment(attachment1, attachment2) {
                                                             }
 
                                                             /**
- * file: ws3-fca/exocore/datas/formatters.js
+ * file: biar-fca/exocore/datas/formatters.js
  * Hanapin ang function na ito at palitan ng version na ito.
  */
 function formatDeltaMessage(m) {

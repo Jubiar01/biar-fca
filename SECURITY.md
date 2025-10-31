@@ -11,7 +11,7 @@ We release patches for security vulnerabilities in the following versions:
 
 ## Reporting a Vulnerability
 
-The ws3-fca team takes security bugs seriously. We appreciate your efforts to responsibly disclose your findings.
+The biar-fca team takes security bugs seriously. We appreciate your efforts to responsibly disclose your findings.
 
 ### How to Report a Security Vulnerability?
 
@@ -46,7 +46,7 @@ Please include the following information:
 
 ### Security Best Practices for Users
 
-When using ws3-fca, follow these security best practices:
+When using biar-fca, follow these security best practices:
 
 #### 1. Protect Your Credentials
 
@@ -181,11 +181,11 @@ Security updates will be released as patch versions (e.g., 3.5.3) and announced:
 
 ## Attribution
 
-We appreciate security researchers who help keep ws3-fca and our users safe:
+We appreciate security researchers who help keep biar-fca and our users safe:
 
 <!-- Contributors who report security issues will be listed here -->
 
 ---
 
-**Thank you for helping keep ws3-fca secure!** 🔒
+**Thank you for helping keep biar-fca secure!** 🔒
 

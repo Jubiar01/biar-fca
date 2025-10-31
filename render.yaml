@@ -1,7 +1,7 @@
 services:
-  # Main bot service - runs login_instant.js with health check
+  # Main bot service - runs login.js with health check
   - type: web
-    name: ws3fca-bot
+    name: biarfca-bot
     env: node
     region: singapore
     plan: free

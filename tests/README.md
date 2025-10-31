@@ -1,6 +1,6 @@
 # Tests
 
-This directory contains the test suite for ws3-fca.
+This directory contains the test suite for biar-fca.
 
 ## Structure
 

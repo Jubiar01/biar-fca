@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Base error class for all ws3-fca errors
+ * Base error class for all biar-fca errors
  */
 class FCAError extends Error {
   /**

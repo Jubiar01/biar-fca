@@ -3,18 +3,18 @@
 const { login } = require('../src/core/client');
 
 /**
- * ws3-fca - Facebook Chat API
+ * biar-fca - Facebook Chat API
  * 
  * A powerful Node.js library for automating Facebook Messenger interactions.
  * Provides a comprehensive API for sending messages, managing threads, retrieving user info,
  * and much more through a clean, promise-based interface.
  * 
- * @module ws3-fca
- * @author NethWs3Dev
+ * @module biar-fca
+ * @author NethWs3Dev (original)
  * @license MIT
  * 
  * @example
- * const { login } = require('ws3-fca');
+ * const { login } = require('biar-fca');
  * const fs = require('fs');
  * 
  * const appState = JSON.parse(fs.readFileSync('appstate.json', 'utf8'));

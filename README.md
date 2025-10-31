@@ -1,8 +1,10 @@
-# 🚘 ws3-fca
+# 🚘 biar-fca
 
 ![Image](wiegine.png)
 
-💁 **ws3-fca** is a fully refactored Facebook Chat API (FCA) client built for **reliable**, **real-time**, and **modular** interaction with Facebook Messenger. Designed with modern bot development in mind, it offers full control over Messenger automation through a clean, stable interface.
+💁 **biar-fca** is a fully refactored Facebook Chat API (FCA) client built for **reliable**, **real-time**, and **modular** interaction with Facebook Messenger. Designed with modern bot development in mind, it offers full control over Messenger automation through a clean, stable interface.
+
+> 🔀 **Forked from [ws3-fca](https://github.com/Irfan430/ws3fca)** - Enhanced and maintained by Jubiar
 
 ---
 
@@ -28,7 +30,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
   Send and receive messages (text, attachments, stickers, replies).
 
 * 📝 **Message Editing**
-  Edit your bot’s messages in-place.
+  Edit your bot's messages in-place.
 
 * ✍️ **Typing Indicators**
   Detect and send typing status.
@@ -56,7 +58,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
   Automate social interactions.
 
 * 🌐 **Proxy Support**
-  Full support for custom proxies.
+  Full support for custom proxies with testing utilities.
 
 * 🧱 **Modular Architecture**
   Organized into pluggable models for maintainability.
@@ -71,7 +73,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 > Requires **Node.js v20+**
 
 ```bash
-npm i ws3-fca@latest
+npm i biar-fca@latest
 ```
 
 ---
@@ -95,7 +97,7 @@ This repository includes **TWO advanced bot implementations** with different ant
 node login_safe.js
 ```
 
-### ⚡ `login_instant.js` - Technical Obfuscation
+### ⚡ `login.js` - Technical Obfuscation
 **Strategy**: Advanced cryptographic and traffic obfuscation
 - 🔐 Session fingerprint management (6hr rotation)
 - 🎭 Multi-layer request obfuscation
@@ -108,7 +110,7 @@ node login_safe.js
 **Use when**: You need speed + protection without human simulation
 
 ```bash
-node login_instant.js
+node login.js
 ```
 
 📖 **Full comparison**: See [ANTI_DETECTION_GUIDE.md](ANTI_DETECTION_GUIDE.md)
@@ -142,7 +144,7 @@ Place this file in the root directory as `appstate.json`.
 ```js
 const fs = require("fs");
 const path = require("path");
-const { login } = require("ws3-fca");
+const { login } = require("biar-fca");
 
 let credentials;
 try {
@@ -201,17 +203,87 @@ login(credentials, {
 
 ---
 
+## 📝 Changelog
+
+### Version 3.5.2 (biar-fca fork) - October 31, 2025
+
+#### 🎉 Fork Announcement
+- **biar-fca** forked from [ws3-fca](https://github.com/Irfan430/ws3fca)
+- New maintainer: **Jubiar**
+
+#### ✨ New Features
+- Added web-based bot management interface
+- Integrated proxy testing utilities with batch testing support
+- Added API health monitoring endpoint
+- Implemented real-time bot status tracking
+
+#### 🔧 Improvements
+- Enhanced server.js with Express-based HTTP server
+- Added proxy validation and testing endpoints
+- Improved error handling and logging
+- Better deployment support for Vercel and Render
+
+#### 🗑️ Removed Features
+- Removed Facebook account creation functionality (fbcreate.js)
+- Cleaned up unused dependencies and routes
+
+#### 🐛 Bug Fixes
+- Fixed module loading errors
+- Resolved proxy configuration issues
+- Improved stability and error recovery
+
+#### 📦 Package Changes
+- Renamed package from `ws3-fca` to `biar-fca`
+- Updated all internal references and documentation
+- Maintained backward compatibility with ws3-fca API
+
+---
+
 ## 🙌 Credits
 
-* 🔧 **@NethWs3Dev (Kenneth Aceberos)** – Main developer, equal maintainer, feature and patch contributions.
-* 💧 **@ChoruOfficial** – Lead developer, refactor of original FCA code, Fully Setup Mqtt.
-* 🔮 **@CommunityExocore** – Foundational core design and architecture.
+### Original Authors (ws3-fca)
+* 🔧 **[@NethWs3Dev](https://github.com/NethWs3Dev) (Kenneth Aceberos)** – Main developer, equal maintainer, feature and patch contributions.
+* 💧 **@ChoruOfficial (Johnsteve Costaños)** – Lead developer, refactor of original FCA code, Fully Setup MQTT.
+* 🔮 **@CommunityExocore (Jonell Magallanes)** – Foundational core design and architecture.
 
+### Current Maintainer (biar-fca)
+* 🚀 **Jubiar** – Fork maintainer, enhancements, and ongoing development.
+
+### Original FCA (2015)
 > Copyright (c) 2015
 > Avery, Benjamin, David, Maude
+
+---
+
+## 🔗 Related Projects
+
+- **Original ws3-fca**: [https://github.com/Irfan430/ws3fca](https://github.com/Irfan430/ws3fca)
+- **Documentation**: [https://exocore-dev-docs-exocore.hf.space](https://exocore-dev-docs-exocore.hf.space)
 
 ---
 
 ## 📊 License
 
 **MIT** – Free to use, modify, and distribute. Attribution appreciated.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Whether it's bug fixes, new features, or documentation improvements:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## ⚠️ Disclaimer
+
+This project is not affiliated with, authorized, maintained, sponsored, or endorsed by Facebook or any of its affiliates. Use this library at your own risk. Automating Facebook accounts may violate Facebook's Terms of Service and could result in account restrictions or bans.
+
+---
+
+**Made with ❤️ by the biar-fca team**
