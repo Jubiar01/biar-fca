@@ -4,31 +4,63 @@ const utils = require('../../../utils');
 module.exports = function (defaultFuncs, api, ctx) {
   async function cleanupResources() {
     try {
+      // Disable auto-reconnect BEFORE disconnecting
+      if (ctx.globalOptions) {
+        ctx.globalOptions.autoReconnect = false;
+      }
+
+      // Stop cookie refresh manager first (stops MQTT pings and health checks)
+      if (ctx.cookieRefreshManager) {
+        try {
+          utils.log("logout", "Stopping cookie refresh manager...");
+          ctx.cookieRefreshManager.stop();
+          ctx.cookieRefreshManager = null;
+          utils.log("logout", "Cookie refresh manager stopped.");
+        } catch (stopErr) {
+          utils.error("logout", "Error stopping refresh manager:", stopErr.message);
+        }
+      }
+
+      // Clear presence interval
+      if (ctx.presenceInterval) {
+        clearInterval(ctx.presenceInterval);
+        ctx.presenceInterval = null;
+      }
+
+      // Wait a moment for any pending MQTT operations to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Now disconnect MQTT client
       if (ctx.mqttClient) {
         try {
           utils.log("logout", "Disconnecting MQTT client...");
+          
+          // Remove all event listeners to prevent reconnection attempts
+          if (typeof ctx.mqttClient.removeAllListeners === 'function') {
+            ctx.mqttClient.removeAllListeners();
+          }
+          
+          // Force close the connection
           ctx.mqttClient.end(true);
           ctx.mqttClient = null;
+          
           utils.log("logout", "MQTT client disconnected.");
         } catch (mqttErr) {
           utils.log("logout", "Error disconnecting MQTT (non-critical): " + mqttErr.message);
         }
       }
 
-      if (ctx.presenceInterval) {
-        clearInterval(ctx.presenceInterval);
-        ctx.presenceInterval = null;
-      }
-
-      if (ctx.cookieRefreshManager) {
-        try {
-          ctx.cookieRefreshManager.stop();
-        } catch (stopErr) {
-        }
+      // Clear reconnect function
+      if (ctx.reconnectMqtt) {
+        ctx.reconnectMqtt = null;
       }
 
       ctx.loggedIn = false;
       ctx.mqttConnected = false;
+      
+      // Wait for MQTT to fully disconnect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
     } catch (cleanupErr) {
       utils.error("logout", "Error during cleanup:", cleanupErr.message);
     }
@@ -114,10 +146,14 @@ module.exports = function (defaultFuncs, api, ctx) {
         return;
       }
 
-      utils.log("logout", "Attempting to logout...");
+      utils.log("logout", "🔴 Initiating logout sequence...");
 
+      // Step 1: Cleanup all resources and disconnect MQTT
+      utils.log("logout", "Step 1: Cleaning up resources...");
       await cleanupResources();
 
+      // Step 2: Attempt logout
+      utils.log("logout", "Step 2: Logging out from Facebook...");
       const apiSuccess = await logoutViaAPI();
       
       if (!apiSuccess) {
@@ -129,7 +165,7 @@ module.exports = function (defaultFuncs, api, ctx) {
       }
 
       ctx.loggedIn = false;
-      utils.log("logout", "Logout completed successfully.");
+      utils.log("logout", "✅ Logout completed successfully.");
 
     } catch (err) {
       utils.error("logout", "Logout error:", err);

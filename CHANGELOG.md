@@ -4,6 +4,72 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.9] - 2025-11-01
+
+### 🐛 Critical Fix - MQTT Cleanup on Logout/Remove
+
+Fixed MQTT connections persisting after bot logout or deletion, preventing response issues.
+
+### Fixed
+
+- **MQTT Persists After Logout**: Complete MQTT disconnect before logout
+  - Disables `autoReconnect` BEFORE disconnecting MQTT
+  - Removes all MQTT event listeners to prevent reconnection attempts
+  - Waits 500ms for pending operations, then disconnects MQTT
+  - Waits additional 1000ms for complete disconnection
+  - Clears `ctx.reconnectMqtt` function reference
+  
+- **MQTT Reconnection During Logout**: Added logout state checks
+  - MQTT 'close' event now checks `ctx.loggedIn` status
+  - Only attempts reconnection if bot is still logged in
+  - Double-checks login state before triggering reconnection
+  - Logs reason when reconnection is cancelled
+
+- **Jubiar Bot Removal**: Proper async logout handling
+  - Changed `tempApi.logout()` to `await tempApi.logout()`
+  - Logs waiting message during MQTT cleanup
+  - Made `stopAll()` async to properly wait for all logouts
+  - Updated SIGINT handler to await `stopAll()`
+
+### Added
+
+- **Step-by-Step Logout Logging**: Clear visibility into logout process
+  - `🔴 Initiating logout sequence...`
+  - `Step 1: Cleaning up resources...`
+  - `Step 2: Logging out from Facebook...`
+  - `✅ Logout completed successfully.`
+
+- **Enhanced Resource Cleanup Order**:
+  1. Disable autoReconnect
+  2. Stop cookie refresh manager (stops pings & health checks)
+  3. Clear presence intervals
+  4. Wait 500ms for pending operations
+  5. Remove MQTT event listeners
+  6. Force disconnect MQTT
+  7. Clear reconnect function
+  8. Wait 1000ms for complete cleanup
+  9. Proceed with logout
+
+### Changed
+
+- **Logout Flow**: Now fully async with proper timing
+  - Cleanup → Wait → Disconnect → Wait → Logout
+  - Prevents race conditions with reconnection logic
+  
+- **MQTT Close Handler**: Smarter reconnection logic
+  - Checks if `ctx.loggedIn !== false` before reconnecting
+  - Logs cancellation reason for better debugging
+  - "Reconnection disabled or bot logged out."
+
+### Technical Details
+
+- Total cleanup time: ~1.5 seconds (500ms + 1000ms waits)
+- MQTT event listeners cleared via `removeAllListeners()`
+- Reconnection timeout cancelled by logout state check
+- Jubiar `stopAll()` uses `Promise.all()` for parallel logout
+
+---
+
 ## [3.7.8] - 2025-11-01
 
 ### 🐛 Critical Fixes - Logging & Bot Responsiveness

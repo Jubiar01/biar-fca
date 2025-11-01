@@ -220,16 +220,23 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         });
 
         mqttClient.on('close', () => {
-            utils.warn("🔌 MQTT connection closed. Reconnecting...");
+            utils.warn("🔌 MQTT connection closed.");
             ctx.mqttConnected = false;
             
-            if (ctx.globalOptions.autoReconnect !== false) {
+            // Only attempt reconnection if not logging out and autoReconnect is enabled
+            if (ctx.loggedIn !== false && ctx.globalOptions && ctx.globalOptions.autoReconnect !== false) {
+                utils.log("Will attempt reconnection in 5 seconds...");
                 setTimeout(() => {
-                    if (!ctx.mqttClient || !ctx.mqttClient.connected) {
+                    // Double-check we're still logged in before reconnecting
+                    if (ctx.loggedIn !== false && (!ctx.mqttClient || !ctx.mqttClient.connected)) {
                         utils.log("🔄 Triggering MQTT reconnection...");
                         getSeqID();
+                    } else {
+                        utils.log("Reconnection cancelled: Bot logged out or already connected.");
                     }
                 }, 5000);
+            } else {
+                utils.log("Reconnection disabled or bot logged out.");
             }
         });
 
