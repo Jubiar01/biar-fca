@@ -43,16 +43,37 @@ function createSession(jar) {
         }
 
         const cookieJar = new CookieJar();
-        const cookies = jar.getCookies('https://www.facebook.com');
-        
+        let cookies = [];
+
+        if (typeof jar.getCookies === 'function') {
+            cookies = jar.getCookies('https://www.facebook.com');
+        } else if (typeof jar.getCookiesSync === 'function') {
+            cookies = jar.getCookiesSync('https://www.facebook.com');
+        }
+
+        if (!Array.isArray(cookies)) {
+            cookies = [];
+        }
+
+        if (cookies.length === 0) {
+            throw new Error('No cookies found in jar');
+        }
+
         cookies.forEach(cookie => {
-            cookieJar.setCookieSync(`${cookie.key}=${cookie.value}`, 'https://www.facebook.com');
+            try {
+                const cookieStr = cookie.key ? `${cookie.key}=${cookie.value}` : cookie.toString();
+                cookieJar.setCookieSync(cookieStr, 'https://www.facebook.com');
+            } catch (err) {
+                utils.error('Error setting cookie:', err.message);
+            }
         });
 
         return wrapper(axios.create({
             jar: cookieJar,
             withCredentials: true,
-            headers: facebookHeaders
+            headers: facebookHeaders,
+            timeout: 30000,
+            maxRedirects: 5
         }));
     } catch (error) {
         utils.error('Session creation failed:', error.message);
@@ -73,26 +94,30 @@ async function simulateHumanActivity(session) {
             const delay = 3000 + Math.random() * 7000;
             await new Promise(resolve => setTimeout(resolve, delay));
             
-            const response = await session.get(action, {
-                headers: {
-                    ...facebookHeaders,
-                    'referer': 'https://www.facebook.com/'
-                }
-            });
+            try {
+                const response = await session.get(action, {
+                    headers: {
+                        ...facebookHeaders,
+                        'referer': 'https://www.facebook.com/'
+                    }
+                });
 
-            if (response.status === 200) {
-                utils.log(`Activity: ${action}`);
-                
-                if (Math.random() > 0.7) {
-                    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 5000));
-                    await session.get('https://www.facebook.com/', {
-                        headers: {
-                            ...facebookHeaders,
-                            'referer': action
-                        }
-                    });
-                    utils.log('Swiping action completed');
+                if (response.status === 200) {
+                    utils.log(`Activity: ${action}`);
+                    
+                    if (Math.random() > 0.7) {
+                        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 5000));
+                        await session.get('https://www.facebook.com/', {
+                            headers: {
+                                ...facebookHeaders,
+                                'referer': action
+                            }
+                        });
+                        utils.log('Swiping action completed');
+                    }
                 }
+            } catch (err) {
+                utils.error(`Failed to access ${action}:`, err.message);
             }
         }
         
@@ -111,7 +136,8 @@ async function simulateOnlineUser(session) {
             headers: {
                 ...facebookHeaders,
                 'referer': 'https://www.facebook.com/'
-            }
+            },
+            validateStatus: () => true
         });
         
         return response.status === 200;
@@ -161,8 +187,13 @@ module.exports = function (defaultFuncs, api, ctx) {
             utils.log('Online presence duration completed');
         }, duration);
 
-        simulateHumanActivity(session);
-        simulateOnlineUser(session);
+        simulateHumanActivity(session).catch(err => {
+            utils.error('Initial activity simulation failed:', err.message);
+        });
+        
+        simulateOnlineUser(session).catch(err => {
+            utils.error('Initial online user simulation failed:', err.message);
+        });
 
         return {
             stop: () => {

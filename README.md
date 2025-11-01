@@ -26,7 +26,9 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-**Latest:** v3.7.1 -This release fixes a critical error in the sendTypingIndicator function that caused crashes when called with flexible parameters.
+**Latest:** This release adds a powerful new feature to maintain realistic online presence on Facebook, helping bots stay active and appear more human-like.
+
+**Credits**: Original code concept by **Jonell Huthin Magallanes**
 
 ---
 

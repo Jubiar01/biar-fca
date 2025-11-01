@@ -4,7 +4,7 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
-## [3.7.2] - 2025-11-01
+## [3.7.3] - 2025-11-01
 
 ### ✨ New Feature - Online Presence Simulation
 
