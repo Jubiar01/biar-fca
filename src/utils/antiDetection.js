@@ -212,7 +212,7 @@ class BehaviorTracker {
  * Activity scheduler to simulate human online/offline patterns
  */
 class ActivityScheduler {
-    constructor(options = {}) {
+    constructor(_options = {}) {
         this.enabled = false;
     }
     

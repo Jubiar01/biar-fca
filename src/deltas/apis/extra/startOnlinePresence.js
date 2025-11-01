@@ -15,8 +15,6 @@ const ACTIONS = [
     'https://www.facebook.com/marketplace'
 ];
 
-const getRandomAction = () => ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-
 const facebookHeaders = {
     'authority': 'www.facebook.com',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -147,24 +145,6 @@ async function simulateHumanActivity(session) {
     }
 }
 
-async function simulateOnlineUser(session) {
-    if (!session) return false;
-
-    try {
-        const response = await session.get('https://www.facebook.com/', {
-            headers: {
-                ...facebookHeaders,
-                'referer': 'https://www.facebook.com/'
-            },
-            validateStatus: () => true
-        });
-        
-        return response.status === 200;
-    } catch (error) {
-        return false;
-    }
-}
-
 module.exports = function (defaultFuncs, api, ctx) {
     return function startOnlinePresence(intervalTime = 30000) {
         let stopped = false;
@@ -188,10 +168,10 @@ module.exports = function (defaultFuncs, api, ctx) {
                 if (stopped) return;
                 
                 try {
-                    await simulateOnlineUser(session);
-                    utils.log('✓ Online presence check completed');
+                    await simulateHumanActivity(session);
+                    utils.log('✓ Human activity simulation completed');
                 } catch (err) {
-                    utils.error('Online presence check failed:', err.message);
+                    utils.error('Human activity simulation failed:', err.message);
                 }
             };
 

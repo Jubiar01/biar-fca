@@ -4,6 +4,43 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.6] - 2025-11-01
+
+### 🐛 Critical Fixes - Bot Responsiveness & Restart Function
+
+Fixed two critical bugs affecting bot performance and reliability.
+
+### Fixed
+
+- **Bot Sleeping/Unresponsive Issue**: Removed all sleep functionality from antiDetection.js
+  - Completely removed sleepHours, peakHours, slowHours, weekendSlower features
+  - ActivityScheduler now always allows responses (no time restrictions)
+  - Bot responds immediately to user messages without delays
+  - Changed from blocking await to non-blocking promise handling in online presence
+
+- **Double Response Bug on Restart**: Fixed duplicate message handlers after bot restart
+  - Force stops old listeners before removing bot
+  - Force stops online presence before removing bot
+  - Increased cleanup delay from 500ms to 1500ms for complete teardown
+  - Prevents duplicate message handlers from persisting
+
+### Changed
+
+- **Online Presence**: Simplified to only send presence updates without activity simulation
+- **Restart Function**: Enhanced cleanup process with forced listener and presence shutdown
+- **Promise Handling**: Changed from synchronous await to asynchronous .then/.catch for non-blocking execution
+- **ActivityScheduler**: Completely stripped down to no-op class (always returns true/1.0/false)
+
+### Technical Details
+
+- Removed simulateHumanActivity function that caused blocking delays
+- Online presence now only calls simulateOnlineUser without delays
+- Restart function explicitly calls stopListening() and onlinePresence.stop() before removal
+- Extended wait time between removal and re-adding bot for proper cleanup
+- ActivityScheduler methods now return safe defaults without any logic
+
+---
+
 ## [3.7.5] - 2025-11-01
 
 ### 🐛 Critical Fix - Continuous Online Presence
