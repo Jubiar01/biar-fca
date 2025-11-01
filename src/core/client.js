@@ -286,6 +286,11 @@ class CookieRefreshManager {
             clearInterval(this.mqttPingTimer);
             this.mqttPingTimer = null;
         }
+
+        if (this.healthCheckTimer) {
+            clearInterval(this.healthCheckTimer);
+            this.healthCheckTimer = null;
+        }
         
         utils.log("🛑 Cookie Refresh Manager: STOPPED");
     }
@@ -305,6 +310,34 @@ class CookieRefreshManager {
         this.mqttPingTimer = setInterval(() => {
             this.sendMqttPing();
         }, this.mqttPingInterval);
+
+        // Health monitoring: check for message activity
+        this.healthCheckTimer = setInterval(() => {
+            this.checkConnectionHealth();
+        }, 60000); // Check every minute
+    }
+
+    checkConnectionHealth() {
+        if (!this.ctx.lastMessageTime) {
+            return; // Not initialized yet
+        }
+
+        const timeSinceLastMessage = Date.now() - this.ctx.lastMessageTime;
+        const fiveMinutes = 5 * 60 * 1000;
+
+        // If no MQTT messages for 5+ minutes and connection says it's connected
+        if (timeSinceLastMessage > fiveMinutes && this.ctx.mqttClient && this.ctx.mqttClient.connected) {
+            if (this.globalOptions.logging !== false) {
+                utils.log(`⚠️  No MQTT activity for ${Math.floor(timeSinceLastMessage / 60000)} minutes. Forcing reconnection...`);
+            }
+            
+            // Force reconnection
+            if (this.ctx.reconnectMqtt) {
+                this.ctx.reconnectMqtt().catch(err => {
+                    utils.error("Health check reconnection failed:", err.message);
+                });
+            }
+        }
     }
     
     /**

@@ -4,6 +4,59 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.8] - 2025-11-01
+
+### 🐛 Critical Fixes - Logging & Bot Responsiveness
+
+Fixed logging issues and bot not responding after 3-5 minutes.
+
+### Fixed
+
+- **startOnlinePresence Logging**: Now uses direct `console.log()` instead of utils
+  - Bypasses global logging settings to always show presence activity
+  - Prefixed all logs with `[PRESENCE]` for easy filtering
+  - Works even when `logLevel: 'silent'` is set
+  - Shows startup, activity, and shutdown messages
+
+- **Bot Not Responding After 3-5 Minutes**: Added health monitoring system
+  - Tracks `ctx.lastMessageTime` and `ctx.messageCount` for all MQTT messages
+  - Health check runs every 60 seconds
+  - Automatically forces reconnection if no MQTT activity for 5+ minutes
+  - Detects silent connection drops that appear "connected" but receive no messages
+
+### Added
+
+- **Connection Health Monitoring**: New `checkConnectionHealth()` method
+  - Monitors time since last MQTT message
+  - Triggers forced reconnection when bot becomes unresponsive
+  - Runs independently from ping failures
+  - Logs warning before reconnecting
+
+- **Message Activity Tracking**: 
+  - `ctx.lastMessageTime`: Timestamp of last received message
+  - `ctx.messageCount`: Total messages received
+  - Updates on every MQTT message (typing, messages, presence, etc.)
+
+### Changed
+
+- **Health Check Timer**: Added to `CookieRefreshManager.startMqttKeepAlive()`
+  - Runs every minute alongside MQTT pings
+  - Properly cleaned up in `stop()` method
+- **Presence Logs**: All now use `console.log/error` with [PRESENCE] prefix
+  - `🟢 Starting continuous online presence simulation...`
+  - `Activity: <url>`
+  - `✓ Human activity simulation completed`
+  - `🔴 Online presence stopped`
+
+### Technical Details
+
+- Health monitoring triggers after 5 minutes of inactivity
+- Complements existing ping failure detection (5 failures = reconnect)
+- Two-layer protection: ping failures OR message timeout
+- Health check timer properly cleared on manager stop
+
+---
+
 ## [3.7.7] - 2025-11-01
 
 ### 🐛 Critical Fixes - MQTT Connection & Logout Reliability

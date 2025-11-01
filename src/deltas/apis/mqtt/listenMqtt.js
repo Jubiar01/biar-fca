@@ -325,9 +325,17 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
             ctx.presenceInterval = presenceInterval;
         }
 
+        // Track last message received time for health monitoring
+        ctx.lastMessageTime = Date.now();
+        ctx.messageCount = 0;
+
         // Handle incoming MQTT messages
         mqttClient.on('message', async (topic, message, _packet) => {
             try {
+                // Update health tracking
+                ctx.lastMessageTime = Date.now();
+                ctx.messageCount++;
+
                 // Parse message payload
                 const jsonMessage = JSON.parse(message.toString());
 

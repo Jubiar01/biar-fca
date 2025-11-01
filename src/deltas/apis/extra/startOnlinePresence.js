@@ -120,7 +120,7 @@ async function simulateHumanActivity(session) {
                 });
 
                 if (response.status === 200) {
-                    utils.log(`Activity: ${action}`);
+                    console.log(`[PRESENCE] Activity: ${action}`);
                     
                     if (Math.random() > 0.7) {
                         await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 5000));
@@ -130,17 +130,17 @@ async function simulateHumanActivity(session) {
                                 'referer': action
                             }
                         });
-                        utils.log('Swiping action completed');
+                        console.log('[PRESENCE] Swiping action completed');
                     }
                 }
             } catch (err) {
-                utils.error(`Failed to access ${action}:`, err.message);
+                console.error(`[PRESENCE] Failed to access ${action}:`, err.message);
             }
         }
         
         return true;
     } catch (error) {
-        utils.error(`Activity simulation error:`, error.message);
+        console.error(`[PRESENCE] Activity simulation error:`, error.message);
         return false;
     }
 }
@@ -154,24 +154,24 @@ module.exports = function (defaultFuncs, api, ctx) {
             const session = createSession(ctx.jar);
             
             if (!session) {
-                utils.log('⚠️  Online presence: Cookie jar not ready, skipping simulation');
+                console.log('[PRESENCE] ⚠️  Cookie jar not ready, skipping simulation');
                 return;
             }
 
-            utils.log('Starting continuous online presence simulation...');
-            utils.log(`Interval: Every ${intervalTime / 1000} seconds`);
-            utils.log('┌────────────────────────────────────────────┐');
-            utils.log('│ Credits: Jonell Huthin Magallanes         │');
-            utils.log('└────────────────────────────────────────────┘');
+            console.log('[PRESENCE] 🟢 Starting continuous online presence simulation...');
+            console.log(`[PRESENCE] Interval: Every ${intervalTime / 1000} seconds`);
+            console.log('[PRESENCE] ┌────────────────────────────────────────────┐');
+            console.log('[PRESENCE] │ Credits: Jonell Huthin Magallanes         │');
+            console.log('[PRESENCE] └────────────────────────────────────────────┘');
 
             const runPresenceCheck = async () => {
                 if (stopped) return;
                 
                 try {
                     await simulateHumanActivity(session);
-                    utils.log('✓ Human activity simulation completed');
+                    console.log('[PRESENCE] ✓ Human activity simulation completed');
                 } catch (err) {
-                    utils.error('Human activity simulation failed:', err.message);
+                    console.error('[PRESENCE] Human activity simulation failed:', err.message);
                 }
             };
 
@@ -193,7 +193,7 @@ module.exports = function (defaultFuncs, api, ctx) {
                 if (mainInterval) {
                     clearInterval(mainInterval);
                 }
-                utils.log('Online presence stopped');
+                console.log('[PRESENCE] 🔴 Online presence stopped');
             }
         };
     };
