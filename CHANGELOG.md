@@ -4,6 +4,77 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.1] - 2025-11-01
+
+### 🐛 Bug Fix - sendTypingIndicator
+
+This release fixes a critical error in the `sendTypingIndicator` function that caused crashes when called with flexible parameters.
+
+### Fixed
+
+- **Critical**: `TypeError: Cannot read properties of undefined (reading 'toString')` in sendTypingIndicator
+  - Root cause: Function expected parameters in strict order `(sendTyping, threadID)` but was often called with just `(threadID)`
+  - When called with single parameter, `threadID` became `undefined` causing `.toString()` to fail
+  - Added intelligent parameter detection to support both calling patterns:
+    - `api.sendTypingIndicator(threadID)` - Shows typing indicator (default true)
+    - `api.sendTypingIndicator(true/false, threadID)` - Controls typing indicator
+  
+- **Improved**: Parameter validation and error handling
+  - Added validation to ensure threadID is always provided
+  - Added try-catch wrapper for better error handling
+  - Function now throws descriptive error when threadID is missing
+  - Callback errors are properly handled in both success and failure cases
+
+### Technical Details
+
+**What Was Broken in v3.7.0:**
+```javascript
+// Strict parameter order - failed when called with just threadID
+return async function sendTypingIndicatorV2(sendTyping, threadID, callback) {
+    thread_key: threadID.toString(), // ❌ Crashes when threadID is undefined
+}
+```
+
+**What's Fixed in v3.7.1:**
+```javascript
+// Flexible parameter detection
+if (typeof sendTyping === 'string' || typeof sendTyping === 'number') {
+    // Called with just threadID: sendTypingIndicator(threadID)
+    actualThreadID = sendTyping;
+    actualSendTyping = true; // Default to showing typing
+} else {
+    // Called with both: sendTypingIndicator(boolean, threadID)
+    actualSendTyping = sendTyping;
+    actualThreadID = threadID;
+}
+
+// Validate before use
+if (!actualThreadID) {
+    throw new Error('sendTypingIndicator: threadID is required');
+}
+```
+
+### Migration Guide
+
+**No breaking changes!** The fix is backward compatible.
+
+**Both patterns now work:**
+```javascript
+// Old way (still works)
+await api.sendTypingIndicator(true, threadID);
+
+// New way (now also works)
+await api.sendTypingIndicator(threadID); // Shows typing indicator
+```
+
+### Impact
+- ✅ Fixes AI-generated commands that use simplified typing indicator syntax
+- ✅ Maintains backward compatibility with existing code
+- ✅ Better error messages for debugging
+- ✅ More developer-friendly API
+
+---
+
 ## [3.6.9] - 2025-11-01
 
 ### 🐛 Critical Bug Fix
