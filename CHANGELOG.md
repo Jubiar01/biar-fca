@@ -4,6 +4,63 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.7] - 2025-11-01
+
+### 🐛 Critical Fixes - MQTT Connection & Logout Reliability
+
+Fixed critical MQTT disconnection issues causing bot unresponsiveness and improved logout functionality.
+
+### Fixed
+
+- **MQTT Disconnection & Auto-Reconnect**: Bot stays online and responsive even after MQTT drops
+  - Added 'offline' and 'close' event handlers for MQTT client
+  - Automatic reconnection triggered when connection is lost
+  - Reconnection function accessible via `ctx.reconnectMqtt()`
+  - 5-second delay before attempting reconnection to avoid rapid retry loops
+  
+- **MQTT Ping Failure Recovery**: Intelligent reconnection when keep-alive pings fail
+  - Triggers reconnection after 5 consecutive ping failures
+  - Also triggers reconnection after 10 total failures
+  - Resets failure counter after successful reconnection
+  - Better logging of connection state changes
+
+- **Improved Logout Method**: More reliable logout with fallback strategies
+  - New `cleanupResources()` helper to properly cleanup MQTT, intervals, and managers
+  - `logoutViaAPI()` - Direct API logout (primary method)
+  - `logoutViaClassic()` - Classic HTML parsing method (fallback)
+  - Properly stops cookie refresh manager on logout
+  - Sets `ctx.mqttConnected = false` during cleanup
+  - All methods attempt cleanup even if logout fails
+
+### Added
+
+- **ctx.mqttConnected**: New connection state flag for tracking MQTT status
+- **ctx.reconnectMqtt()**: Manual MQTT reconnection function
+  - Safely ends existing MQTT client
+  - Generates new client ID
+  - Re-fetches sequence ID and reconnects
+  - Can be called manually or automatically on failures
+
+### Changed
+
+- **MQTT Error Handling**: Errors no longer forcefully close connection
+  - Allows MQTT client's built-in reconnection logic to work
+  - Better separation of error logging vs connection management
+- **Connection Monitoring**: Added comprehensive logging for connection state changes
+  - Logs when MQTT goes offline
+  - Logs when MQTT connection closes
+  - Logs reconnection attempts
+
+### Technical Details
+
+- MQTT 'offline' event sets `ctx.mqttConnected = false`
+- MQTT 'close' event triggers reconnection after 5s delay
+- MQTT 'reconnect' event logs reconnection attempts
+- Ping failures accumulate and trigger manual reconnection
+- Logout now uses multi-strategy approach for higher success rate
+
+---
+
 ## [3.7.6] - 2025-11-01
 
 ### 🐛 Critical Fixes - Bot Responsiveness & Restart Function

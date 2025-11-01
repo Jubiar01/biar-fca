@@ -1,42 +1,59 @@
 "use strict";
-// @ChoruOfficial
 const utils = require('../../../utils');
 
-/**
- * @param {Object} defaultFuncs
- * @param {Object} api
- * @param {Object} ctx
- * @returns {function(): Promise<void>}
- */
 module.exports = function (defaultFuncs, api, ctx) {
-  /**
-   * Logs the current user out of Facebook.
-   * @returns {Promise<void>} A promise that resolves when logout is successful or rejects on error.
-   */
-  return async function logout() {
-    const form = {
-      pmid: "0",
-    };
-
+  async function cleanupResources() {
     try {
-      // Check if context is valid before attempting logout
-      if (!ctx || !ctx.jar) {
-        utils.log("logout", "No active session to logout from.");
-        if (ctx) ctx.loggedIn = false;
-        return;
-      }
-
-      // Disconnect MQTT first to stop receiving messages
       if (ctx.mqttClient) {
         try {
           utils.log("logout", "Disconnecting MQTT client...");
-          ctx.mqttClient.end(true); // Force close
+          ctx.mqttClient.end(true);
           ctx.mqttClient = null;
           utils.log("logout", "MQTT client disconnected.");
         } catch (mqttErr) {
           utils.log("logout", "Error disconnecting MQTT (non-critical): " + mqttErr.message);
         }
       }
+
+      if (ctx.presenceInterval) {
+        clearInterval(ctx.presenceInterval);
+        ctx.presenceInterval = null;
+      }
+
+      if (ctx.cookieRefreshManager) {
+        try {
+          ctx.cookieRefreshManager.stop();
+        } catch (stopErr) {
+        }
+      }
+
+      ctx.loggedIn = false;
+      ctx.mqttConnected = false;
+    } catch (cleanupErr) {
+      utils.error("logout", "Error during cleanup:", cleanupErr.message);
+    }
+  }
+
+  async function logoutViaAPI() {
+    try {
+      const logoutUrl = "https://www.facebook.com/logout.php";
+      const logoutForm = {
+        h: ctx.fb_dtsg || "",
+        fb_dtsg: ctx.fb_dtsg || ""
+      };
+
+      await defaultFuncs.post(logoutUrl, ctx.jar, logoutForm);
+      utils.log("logout", "Logged out via API method.");
+      return true;
+    } catch (err) {
+      utils.log("logout", "API logout method failed:", err.message);
+      return false;
+    }
+  }
+
+  async function logoutViaClassic() {
+    try {
+      const form = { pmid: "0" };
 
       const resData = await defaultFuncs
         .post(
@@ -46,26 +63,21 @@ module.exports = function (defaultFuncs, api, ctx) {
         )
         .then(utils.parseAndCheckLogin(ctx, defaultFuncs));
 
-      // Check if response has required structure
       if (!resData || !resData.jsmods || !resData.jsmods.instances || !resData.jsmods.instances[0]) {
-        utils.log("logout", "Session already logged out or invalid response structure.");
-        ctx.loggedIn = false;
-        return;
+        utils.log("logout", "Classic logout: Session already logged out.");
+        return false;
       }
 
       const elem = resData.jsmods.instances[0][2][0].find(v => v.value === "logout");
       if (!elem || !elem.markup || !elem.markup.__m) {
-        utils.log("logout", "Could not find logout form element. Session may already be logged out.");
-        ctx.loggedIn = false;
-        return;
+        utils.log("logout", "Classic logout: Could not find logout element.");
+        return false;
       }
       
-      // Safely find the markup element with proper null checking
       const markupElement = resData.jsmods.markup ? resData.jsmods.markup.find(v => v && v[0] === elem.markup.__m) : null;
       if (!markupElement || !markupElement[1] || !markupElement[1].__html) {
-        utils.log("logout", "Could not find logout markup. Session may already be logged out.");
-        ctx.loggedIn = false;
-        return;
+        utils.log("logout", "Classic logout: Could not find markup.");
+        return false;
       }
       
       const html = markupElement[1].__html;
@@ -80,35 +92,52 @@ module.exports = function (defaultFuncs, api, ctx) {
         .post("https://www.facebook.com/logout.php", ctx.jar, logoutForm)
         .then(utils.saveCookies(ctx.jar));
 
-      if (!logoutRes.headers || !logoutRes.headers.location) {
-        throw { error: "An error occurred when logging out." };
+      if (logoutRes.headers && logoutRes.headers.location) {
+        await defaultFuncs
+          .get(logoutRes.headers.location, ctx.jar)
+          .then(utils.saveCookies(ctx.jar));
+      }
+      
+      utils.log("logout", "Logged out via classic method.");
+      return true;
+    } catch (err) {
+      utils.log("logout", "Classic logout method failed:", err.message);
+      return false;
+    }
+  }
+
+  return async function logout() {
+    try {
+      if (!ctx || !ctx.jar) {
+        utils.log("logout", "No active session to logout from.");
+        if (ctx) ctx.loggedIn = false;
+        return;
       }
 
-      await defaultFuncs
-        .get(logoutRes.headers.location, ctx.jar)
-        .then(utils.saveCookies(ctx.jar));
-      
-      ctx.loggedIn = false;
-      utils.log("logout", "Logged out successfully.");
+      utils.log("logout", "Attempting to logout...");
 
-    } catch (err) {
-      // Gracefully handle logout errors and still mark as logged out
-      utils.error("logout", err);
+      await cleanupResources();
+
+      const apiSuccess = await logoutViaAPI();
       
-      // Ensure MQTT is disconnected even if logout fails
-      if (ctx && ctx.mqttClient) {
-        try {
-          ctx.mqttClient.end(true);
-          ctx.mqttClient = null;
-          utils.log("logout", "MQTT client forcefully disconnected after error.");
-        } catch (mqttErr) {
-          // Ignore MQTT disconnect errors
+      if (!apiSuccess) {
+        const classicSuccess = await logoutViaClassic();
+        
+        if (!classicSuccess) {
+          utils.log("logout", "All logout methods exhausted. Session cleaned up locally.");
         }
       }
+
+      ctx.loggedIn = false;
+      utils.log("logout", "Logout completed successfully.");
+
+    } catch (err) {
+      utils.error("logout", "Logout error:", err);
+      
+      await cleanupResources();
       
       if (ctx) ctx.loggedIn = false;
       utils.log("logout", "Session marked as logged out despite error.");
-      // Don't throw - allow cleanup to complete
     }
   };
 };

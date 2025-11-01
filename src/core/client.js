@@ -321,6 +321,17 @@ class CookieRefreshManager {
                     if (this.globalOptions.logging !== false) {
                         utils.log(`⚠️  MQTT ping skipped: Client not connected (${this.mqttPingFailures} failures)`);
                     }
+                    
+                    // Trigger reconnection if too many failures
+                    if (this.mqttPingFailures >= 5 && this.ctx.reconnectMqtt) {
+                        utils.log(`🔄 Attempting MQTT reconnection after ${this.mqttPingFailures} ping failures...`);
+                        this.mqttPingFailures = 0;
+                        try {
+                            await this.ctx.reconnectMqtt();
+                        } catch (reconnErr) {
+                            utils.error("Failed to reconnect MQTT:", reconnErr.message);
+                        }
+                    }
                 }
                 return;
             }
@@ -354,9 +365,15 @@ class CookieRefreshManager {
                 utils.log(`⚠️  MQTT ping failed (${this.mqttPingFailures} failures): ${error.message}`);
             }
             
-            // If too many failures, log warning
-            if (this.mqttPingFailures >= 10) {
-                utils.log(`❌ MQTT keep-alive has failed ${this.mqttPingFailures} times. Connection may be unstable.`);
+            // If too many failures, trigger reconnection
+            if (this.mqttPingFailures >= 10 && this.ctx.reconnectMqtt) {
+                utils.log(`🔄 Triggering MQTT reconnection after ${this.mqttPingFailures} failures...`);
+                this.mqttPingFailures = 0;
+                try {
+                    await this.ctx.reconnectMqtt();
+                } catch (reconnErr) {
+                    utils.error("Failed to reconnect MQTT:", reconnErr.message);
+                }
             }
         }
     }

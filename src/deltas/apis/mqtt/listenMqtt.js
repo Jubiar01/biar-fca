@@ -211,21 +211,30 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 { originalError: err, host }
             );
             utils.error("listenMqtt", networkError);
+        });
+
+        // Handle MQTT disconnection/offline events
+        mqttClient.on('offline', () => {
+            utils.warn("⚠️  MQTT client went offline. Will attempt reconnection...");
+            ctx.mqttConnected = false;
+        });
+
+        mqttClient.on('close', () => {
+            utils.warn("🔌 MQTT connection closed. Reconnecting...");
+            ctx.mqttConnected = false;
             
-            // Clean up connection
-            try {
-                mqttClient.end();
-            } catch (endErr) {
-                utils.error("listenMqtt", "Error ending MQTT client:", endErr);
+            if (ctx.globalOptions.autoReconnect !== false) {
+                setTimeout(() => {
+                    if (!ctx.mqttClient || !ctx.mqttClient.connected) {
+                        utils.log("🔄 Triggering MQTT reconnection...");
+                        getSeqID();
+                    }
+                }, 5000);
             }
-            
-            // Attempt reconnection if enabled
-            if (ctx.globalOptions.autoReconnect) {
-                utils.log("Attempting to reconnect...");
-                getSeqID();
-            } else {
-                globalCallback(networkError);
-            }
+        });
+
+        mqttClient.on('reconnect', () => {
+            utils.log("🔄 MQTT reconnecting...");
         });
 
         // Handle successful connection
@@ -262,6 +271,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 }
 
                 utils.log("✅ Successfully connected to MQTT");
+                ctx.mqttConnected = true;
 
                 // Get and log bot information
                 try {
@@ -454,6 +464,27 @@ module.exports = (defaultFuncs, api, ctx) => {
             );
             utils.error("getSeqID error:", authError);
             return globalCallback(authError);
+        }
+    };
+
+    ctx.reconnectMqtt = async () => {
+        try {
+            utils.log("🔄 Reconnecting MQTT...");
+            
+            if (ctx.mqttClient) {
+                try {
+                    ctx.mqttClient.end(true);
+                } catch (endErr) {
+                    utils.error("Error ending MQTT client:", endErr);
+                }
+                ctx.mqttClient = null;
+            }
+            
+            ctx.clientID = generateUUID();
+            await getSeqID();
+        } catch (err) {
+            utils.error("Failed to reconnect MQTT:", err);
+            throw err;
         }
     };
 
