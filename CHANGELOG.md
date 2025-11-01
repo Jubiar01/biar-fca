@@ -2,8 +2,75 @@
 
 All notable changes to **biar-fca** will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+---
+
+## [3.6.9] - 2025-11-01
+
+### 🐛 Critical Bug Fix
+
+This release fixes a critical logout error that prevented proper cleanup when removing or restarting bots.
+
+### Fixed
+
+- **Critical**: `TypeError: Cannot read properties of undefined (reading '1')` in logout function
+  - Root cause: Missing null/undefined checks when accessing Facebook's logout markup response
+  - The `.find()` method was returning `undefined` when the markup element wasn't found
+  - Accessing `[1]` on `undefined` caused the application to crash
+  
+- **Improved**: Graceful logout handling
+  - Added comprehensive null/undefined checks for all response properties
+  - Added early returns when session is already logged out
+  - Added validation for context and jar objects before attempting logout
+  - Logout now marks session as logged out even if errors occur (prevents stuck sessions)
+
+### Technical Details
+
+**What Was Broken in v3.6.8:**
+```javascript
+// No null checking - crashed if element wasn't found
+const html = resData.jsmods.markup.find(v => v[0] === elem.markup.__m)[1].__html;
+```
+
+**What's Fixed in v3.6.9:**
+```javascript
+// Proper null checking with early returns
+const markupElement = resData.jsmods.markup ? 
+  resData.jsmods.markup.find(v => v && v[0] === elem.markup.__m) : null;
+
+if (!markupElement || !markupElement[1] || !markupElement[1].__html) {
+  utils.log("logout", "Could not find logout markup. Session may already be logged out.");
+  ctx.loggedIn = false;
+  return;
+}
+
+const html = markupElement[1].__html;
+```
+
+### Impact
+
+- Bot restart now works properly without crashes
+- Bot deletion completes successfully without errors
+- Sessions are properly cleaned up even when logout fails
+- No more unhandled rejection errors during bot management
+
+### Benefits
+
+- ✅ **Graceful error handling** - No more crashes during logout
+- ✅ **Better cleanup** - Sessions always marked as logged out
+- ✅ **Improved logging** - Clear messages when session already logged out
+- ✅ **Robust bot management** - Restart and delete operations work reliably
+
+### Migration Notes
+
+No code changes required - this is a drop-in bug fix for v3.6.8.
+
+If you're experiencing logout errors, update immediately:
+
+```bash
+npm install biar-fca@3.6.9
+# or
+npm install biar-fca@latest
+```
 
 ---
 
