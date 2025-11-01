@@ -22,8 +22,20 @@ module.exports = function (defaultFuncs, api, ctx) {
       // Check if context is valid before attempting logout
       if (!ctx || !ctx.jar) {
         utils.log("logout", "No active session to logout from.");
-        ctx.loggedIn = false;
+        if (ctx) ctx.loggedIn = false;
         return;
+      }
+
+      // Disconnect MQTT first to stop receiving messages
+      if (ctx.mqttClient) {
+        try {
+          utils.log("logout", "Disconnecting MQTT client...");
+          ctx.mqttClient.end(true); // Force close
+          ctx.mqttClient = null;
+          utils.log("logout", "MQTT client disconnected.");
+        } catch (mqttErr) {
+          utils.log("logout", "Error disconnecting MQTT (non-critical): " + mqttErr.message);
+        }
       }
 
       const resData = await defaultFuncs
@@ -82,7 +94,19 @@ module.exports = function (defaultFuncs, api, ctx) {
     } catch (err) {
       // Gracefully handle logout errors and still mark as logged out
       utils.error("logout", err);
-      ctx.loggedIn = false;
+      
+      // Ensure MQTT is disconnected even if logout fails
+      if (ctx && ctx.mqttClient) {
+        try {
+          ctx.mqttClient.end(true);
+          ctx.mqttClient = null;
+          utils.log("logout", "MQTT client forcefully disconnected after error.");
+        } catch (mqttErr) {
+          // Ignore MQTT disconnect errors
+        }
+      }
+      
+      if (ctx) ctx.loggedIn = false;
       utils.log("logout", "Session marked as logged out despite error.");
       // Don't throw - allow cleanup to complete
     }

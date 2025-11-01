@@ -17,11 +17,18 @@ This release fixes a critical logout error that prevented proper cleanup when re
   - The `.find()` method was returning `undefined` when the markup element wasn't found
   - Accessing `[1]` on `undefined` caused the application to crash
   
+- **Critical**: Bots continuing to respond to messages after deletion
+  - Root cause: MQTT connection remained active even after logout was called
+  - Messages were still being received and processed by deleted bots
+  - Added MQTT client disconnection before logout process
+  
 - **Improved**: Graceful logout handling
   - Added comprehensive null/undefined checks for all response properties
   - Added early returns when session is already logged out
   - Added validation for context and jar objects before attempting logout
+  - **MQTT client is now forcefully disconnected before logout**
   - Logout now marks session as logged out even if errors occur (prevents stuck sessions)
+  - Added multiple safety checks in event handlers to prevent processing after deletion
 
 ### Technical Details
 
@@ -29,11 +36,20 @@ This release fixes a critical logout error that prevented proper cleanup when re
 ```javascript
 // No null checking - crashed if element wasn't found
 const html = resData.jsmods.markup.find(v => v[0] === elem.markup.__m)[1].__html;
+
+// MQTT connection remained active after logout
+// Deleted bots continued receiving and processing messages
 ```
 
 **What's Fixed in v3.6.9:**
 ```javascript
-// Proper null checking with early returns
+// 1. Disconnect MQTT first to stop all incoming messages
+if (ctx.mqttClient) {
+  ctx.mqttClient.end(true); // Force close
+  ctx.mqttClient = null;
+}
+
+// 2. Proper null checking with early returns
 const markupElement = resData.jsmods.markup ? 
   resData.jsmods.markup.find(v => v && v[0] === elem.markup.__m) : null;
 
@@ -44,21 +60,32 @@ if (!markupElement || !markupElement[1] || !markupElement[1].__html) {
 }
 
 const html = markupElement[1].__html;
+
+// 3. Additional safety checks in event handlers
+const currentBot = this.bots.get(botId);
+if (!currentBot || currentBot.status === 'offline' || !currentBot.api) {
+  return; // Ignore events from deleted bots
+}
 ```
 
 ### Impact
 
-- Bot restart now works properly without crashes
+- Bot restart now works properly without crashes or double responses
 - Bot deletion completes successfully without errors
+- **Deleted bots immediately stop responding to messages**
+- **MQTT connections are properly closed, preventing ghost responses**
 - Sessions are properly cleaned up even when logout fails
 - No more unhandled rejection errors during bot management
+- Event handlers ignore messages from removed bots
 
 ### Benefits
 
 - ✅ **Graceful error handling** - No more crashes during logout
 - ✅ **Better cleanup** - Sessions always marked as logged out
+- ✅ **MQTT disconnection** - Connections properly closed, no ghost responses
 - ✅ **Improved logging** - Clear messages when session already logged out
 - ✅ **Robust bot management** - Restart and delete operations work reliably
+- ✅ **Event filtering** - Deleted bots' events are ignored immediately
 
 ### Migration Notes
 
