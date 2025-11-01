@@ -4,6 +4,128 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.0] - 2025-11-01
+
+### 🚀 Major Enhancement - Ultra-Reliable MQTT Connection System
+
+Completely reworked MQTT keep-alive and health monitoring to eliminate 5-minute timeout issues and ensure 24/7 bot responsiveness.
+
+### Fixed
+
+- **Bot Not Responding After 5 Minutes of Inactivity**: Complete solution
+  - Reduced MQTT keep-alive interval: 60s → **30s** (more aggressive)
+  - Reduced presence update interval: 50s → **25s** (twice as frequent)
+  - Added dedicated idle connection detector running every **30 seconds**
+  - Auto-reconnect triggers after **3 minutes** of no MQTT messages (was 5 min)
+  - Connection testing with QoS 1 to ensure delivery and detect dead connections
+  - Three-layer protection: Cookie refresh (30s) + Presence (25s) + Idle detector (30s)
+
+- **Stale MQTT Connections Not Detected**: New proactive testing
+  - Detects when MQTT appears "connected" but is actually dead
+  - Sends test message with QoS 1 to verify responsiveness
+  - Forces reconnection if test fails or times out
+  - Logs connection test results for debugging
+
+- **MQTT Ping Failures Too Tolerant**: More aggressive reconnection
+  - Reconnects after **3** ping failures (was 5)
+  - Reconnects after **5** total failures (was 10)
+  - Added 5-second timeout to each ping to detect hung connections
+  - Uses QoS 1 for pings to guarantee delivery confirmation
+
+- **Health Monitoring Too Slow**: Faster detection and recovery
+  - Health checks now run every **30 seconds** (was 60s)
+  - Idle timeout reduced to **3 minutes** (was 5 min)
+  - Checks for both ping failures AND message inactivity
+  - Multiple independent systems monitoring connection health
+
+### Added
+
+- **Enhanced MQTT Keep-Alive System** (`listenMqtt.js`):
+  ```javascript
+  MQTT_CONFIG = {
+    KEEPALIVE_INTERVAL: 30,           // 30s (was 60s)
+    PRESENCE_UPDATE_INTERVAL: 25000,  // 25s (was 50s)
+    IDLE_CHECK_INTERVAL: 30000,       // NEW: Check every 30s
+    MAX_IDLE_TIME: 180000,            // NEW: Max 3min idle
+  }
+  ```
+  - New idle connection detector with automatic testing
+  - Connection test using QoS 1 to verify responsiveness
+  - Forced reconnection if connection test fails
+  - Independent timer for idle detection
+
+- **Improved Cookie Refresh Manager** (`client.js`):
+  - Faster health monitoring: 30-second intervals (was 60s)
+  - Earlier reconnection: 3-minute threshold (was 5 min)
+  - More aggressive ping failure handling: 3 failures trigger reconnect
+  - 5-second timeout for MQTT pings to detect hung connections
+  - Better QoS 1 usage for guaranteed delivery confirmation
+
+- **Enhanced startOnlinePresence** (`startOnlinePresence.js`):
+  - Now includes MQTT keep-alive pings every **20 seconds**
+  - Dual-layer approach: HTTP activity simulation + MQTT pings
+  - Independent timers for HTTP and MQTT (both run separately)
+  - Better error handling for connection issues
+  - Gracefully handles MQTT client unavailability
+  - Credits updated to reflect enhancements
+
+### Changed
+
+- **MQTT Configuration Timings**: Optimized for reliability
+  | Setting | Before | After | Impact |
+  |---------|--------|-------|--------|
+  | Keep-Alive | 60s | **30s** | 2x faster detection |
+  | Presence | 50s | **25s** | 2x more frequent |
+  | Health Check | 60s | **30s** | 2x faster monitoring |
+  | Idle Timeout | 5min | **3min** | Earlier recovery |
+  | Ping Failures | 10 | **5** | Faster reconnection |
+  | QoS Level | 0 | **1** | Guaranteed delivery |
+
+- **Multi-Layer Protection System**: Three independent systems
+  1. **Cookie Refresh Manager**: MQTT pings every 30s with 5s timeout
+  2. **Core MQTT System**: Presence updates every 25s + idle detector every 30s
+  3. **startOnlinePresence**: Additional MQTT pings every 20s (when enabled)
+
+- **Connection Testing**: Proactive health verification
+  - Tests connection after 3 minutes of inactivity
+  - Uses QoS 1 to require acknowledgment
+  - Forces reconnection if test fails
+  - Logs test results for visibility
+
+### Technical Details
+
+**How the Multi-Layer System Works:**
+1. **Every 20 seconds**: startOnlinePresence sends MQTT presence (if enabled)
+2. **Every 25 seconds**: Core MQTT sends presence update
+3. **Every 30 seconds**: Cookie refresh manager sends keep-alive ping with timeout
+4. **Every 30 seconds**: Idle detector checks for stale connections
+5. **After 3 minutes idle**: Automatic connection test and recovery
+
+**Connection State Detection:**
+- Tracks `ctx.lastMessageTime` for all incoming MQTT messages
+- Calculates idle time in real-time
+- Tests connection before forcing reconnection
+- Logs all connection state changes
+
+**Failure Recovery:**
+- 3 consecutive ping failures → Reconnect
+- Connection test fails → Reconnect
+- 5 total ping failures → Reconnect
+- 3+ minutes of no messages → Test and reconnect if needed
+
+**Benefits:**
+- ✅ No more 5-minute timeout issues
+- ✅ Faster recovery: 30s detection + immediate reconnection
+- ✅ Triple-layered protection prevents any single point of failure
+- ✅ Proactive detection before messages fail
+- ✅ Self-healing with automatic reconnection
+
+### Breaking Changes
+
+None. All changes are backward compatible.
+
+---
+
 ## [3.7.9] - 2025-11-01
 
 ### 🐛 Critical Fix - MQTT Cleanup on Logout/Remove

@@ -149,31 +149,79 @@ module.exports = function (defaultFuncs, api, ctx) {
     return function startOnlinePresence(intervalTime = 30000) {
         let stopped = false;
         let mainInterval = null;
+        let mqttPingInterval = null;
 
         setTimeout(() => {
             const session = createSession(ctx.jar);
             
             if (!session) {
-                console.log('[PRESENCE] ⚠️  Cookie jar not ready, skipping simulation');
-                return;
+                console.log('[PRESENCE] ⚠️  Cookie jar not ready, skipping HTTP simulation');
             }
 
-            console.log('[PRESENCE] 🟢 Starting continuous online presence simulation...');
-            console.log(`[PRESENCE] Interval: Every ${intervalTime / 1000} seconds`);
+            console.log('[PRESENCE] 🟢 Starting enhanced online presence system...');
+            console.log(`[PRESENCE] HTTP Activity: Every ${intervalTime / 1000} seconds`);
+            console.log('[PRESENCE] MQTT Keep-Alive: Every 20 seconds');
             console.log('[PRESENCE] ┌────────────────────────────────────────────┐');
             console.log('[PRESENCE] │ Credits: Jonell Huthin Magallanes         │');
+            console.log('[PRESENCE] │ Enhanced with MQTT Keep-Alive             │');
             console.log('[PRESENCE] └────────────────────────────────────────────┘');
+
+            const sendMqttPresence = async () => {
+                if (stopped) return;
+                
+                try {
+                    if (ctx.mqttClient && ctx.mqttClient.connected) {
+                        const presencePayload = {
+                            "make_user_available_at_ms": Date.now(),
+                            "last_active_at_ms": Date.now()
+                        };
+                        
+                        await new Promise((resolve, reject) => {
+                            ctx.mqttClient.publish(
+                                '/orca_presence',
+                                JSON.stringify({ p: presencePayload }),
+                                { qos: 1, retain: false },
+                                (err) => {
+                                    if (err) {
+                                        console.error('[PRESENCE] MQTT ping failed:', err.message);
+                                        reject(err);
+                                    } else {
+                                        console.log('[PRESENCE] ✓ MQTT presence update sent');
+                                        resolve();
+                                    }
+                                }
+                            );
+                        });
+                    } else {
+                        console.log('[PRESENCE] ⚠️  MQTT client not connected, skipping ping');
+                    }
+                } catch (err) {
+                    console.error('[PRESENCE] MQTT presence error:', err.message);
+                }
+            };
 
             const runPresenceCheck = async () => {
                 if (stopped) return;
                 
                 try {
-                    await simulateHumanActivity(session);
-                    console.log('[PRESENCE] ✓ Human activity simulation completed');
+                    if (session) {
+                        await simulateHumanActivity(session);
+                        console.log('[PRESENCE] ✓ HTTP activity simulation completed');
+                    }
+                    
+                    await sendMqttPresence();
                 } catch (err) {
-                    console.error('[PRESENCE] Human activity simulation failed:', err.message);
+                    console.error('[PRESENCE] Presence check failed:', err.message);
                 }
             };
+
+            mqttPingInterval = setInterval(() => {
+                if (stopped) {
+                    clearInterval(mqttPingInterval);
+                    return;
+                }
+                sendMqttPresence();
+            }, 20000);
 
             runPresenceCheck();
 
@@ -192,6 +240,9 @@ module.exports = function (defaultFuncs, api, ctx) {
                 stopped = true;
                 if (mainInterval) {
                     clearInterval(mainInterval);
+                }
+                if (mqttPingInterval) {
+                    clearInterval(mqttPingInterval);
                 }
                 console.log('[PRESENCE] 🔴 Online presence stopped');
             }

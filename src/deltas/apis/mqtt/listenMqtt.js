@@ -19,12 +19,14 @@ const MQTT_TOPICS = [
 ];
 
 const MQTT_CONFIG = {
-    KEEPALIVE_INTERVAL: 60, // Increased to 60 seconds for better stability
+    KEEPALIVE_INTERVAL: 30,
     CONNECT_TIMEOUT: 60000,
-    RECONNECT_PERIOD: 3000, // Increased to 3 seconds for more stable reconnections
-    PRESENCE_UPDATE_INTERVAL: 50000,
-    MIN_RECONNECT_TIME: 2 * 60 * 60 * 1000, // 2 hours - increased from 26 minutes
-    MAX_RECONNECT_TIME: 4 * 60 * 60 * 1000, // 4 hours - increased from 1 hour
+    RECONNECT_PERIOD: 3000,
+    PRESENCE_UPDATE_INTERVAL: 25000,
+    IDLE_CHECK_INTERVAL: 30000,
+    MAX_IDLE_TIME: 3 * 60 * 1000,
+    MIN_RECONNECT_TIME: 2 * 60 * 60 * 1000,
+    MAX_RECONNECT_TIME: 4 * 60 * 60 * 1000,
     PROTOCOL_VERSION: 3,
     QOS_LEVEL: 1
 };
@@ -304,8 +306,9 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
             }
         });
 
-        // Set up presence updates if enabled
         let presenceInterval;
+        let idleCheckInterval;
+        
         if (ctx.globalOptions.updatePresence) {
             presenceInterval = setInterval(() => {
                 if (!mqttClient || !mqttClient.connected) {
@@ -317,6 +320,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     mqttClient.publish(
                         '/orca_presence',
                         JSON.stringify({ "p": presencePayload }),
+                        { qos: 0, retain: false },
                         (err) => {
                             if (err) {
                                 utils.error("Failed to send presence update:", err);
@@ -328,9 +332,48 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 }
             }, MQTT_CONFIG.PRESENCE_UPDATE_INTERVAL);
 
-            // Store interval reference for cleanup
             ctx.presenceInterval = presenceInterval;
         }
+
+        idleCheckInterval = setInterval(() => {
+            if (!ctx.lastMessageTime) {
+                return;
+            }
+
+            const timeSinceLastMessage = Date.now() - ctx.lastMessageTime;
+            
+            if (timeSinceLastMessage > MQTT_CONFIG.MAX_IDLE_TIME) {
+                if (mqttClient && mqttClient.connected) {
+                    utils.warn(`⚠️  MQTT idle for ${Math.floor(timeSinceLastMessage / 1000)}s. Testing connection...`);
+                    
+                    try {
+                        const testPayload = utils.generatePresence(ctx.userID);
+                        mqttClient.publish(
+                            '/orca_presence',
+                            JSON.stringify({ "p": testPayload }),
+                            { qos: 1, retain: false },
+                            (err) => {
+                                if (err) {
+                                    utils.error("Connection test failed. Forcing reconnection...");
+                                    if (ctx.reconnectMqtt) {
+                                        ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
+                                    }
+                                } else {
+                                    utils.log("✅ Connection test passed. MQTT is responsive.");
+                                }
+                            }
+                        );
+                    } catch (testErr) {
+                        utils.error("Connection test error. Forcing reconnection...");
+                        if (ctx.reconnectMqtt) {
+                            ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
+                        }
+                    }
+                }
+            }
+        }, MQTT_CONFIG.IDLE_CHECK_INTERVAL);
+
+        ctx.idleCheckInterval = idleCheckInterval;
 
         // Track last message received time for health monitoring
         ctx.lastMessageTime = Date.now();
@@ -520,22 +563,23 @@ module.exports = (defaultFuncs, api, ctx) => {
             stop() {
                 utils.log("Stopping MQTT listener...");
                 
-                // Clear global callback
                 globalCallback = () => {};
                 
-                // Clear reconnection interval
                 if (reconnectInterval) {
                     clearTimeout(reconnectInterval);
                     reconnectInterval = null;
                 }
                 
-                // Clear presence update interval
                 if (ctx.presenceInterval) {
                     clearInterval(ctx.presenceInterval);
                     ctx.presenceInterval = null;
                 }
                 
-                // Close MQTT connection
+                if (ctx.idleCheckInterval) {
+                    clearInterval(ctx.idleCheckInterval);
+                    ctx.idleCheckInterval = null;
+                }
+                
                 if (ctx.mqttClient) {
                     try {
                         ctx.mqttClient.end();

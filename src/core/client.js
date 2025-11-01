@@ -311,27 +311,24 @@ class CookieRefreshManager {
             this.sendMqttPing();
         }, this.mqttPingInterval);
 
-        // Health monitoring: check for message activity
         this.healthCheckTimer = setInterval(() => {
             this.checkConnectionHealth();
-        }, 60000); // Check every minute
+        }, 30000);
     }
 
     checkConnectionHealth() {
         if (!this.ctx.lastMessageTime) {
-            return; // Not initialized yet
+            return;
         }
 
         const timeSinceLastMessage = Date.now() - this.ctx.lastMessageTime;
-        const fiveMinutes = 5 * 60 * 1000;
+        const threeMinutes = 3 * 60 * 1000;
 
-        // If no MQTT messages for 5+ minutes and connection says it's connected
-        if (timeSinceLastMessage > fiveMinutes && this.ctx.mqttClient && this.ctx.mqttClient.connected) {
+        if (timeSinceLastMessage > threeMinutes && this.ctx.mqttClient && this.ctx.mqttClient.connected) {
             if (this.globalOptions.logging !== false) {
                 utils.log(`⚠️  No MQTT activity for ${Math.floor(timeSinceLastMessage / 60000)} minutes. Forcing reconnection...`);
             }
             
-            // Force reconnection
             if (this.ctx.reconnectMqtt) {
                 this.ctx.reconnectMqtt().catch(err => {
                     utils.error("Health check reconnection failed:", err.message);
@@ -346,17 +343,14 @@ class CookieRefreshManager {
      */
     async sendMqttPing() {
         try {
-            // Check if MQTT client exists and is connected
             if (!this.ctx.mqttClient || !this.ctx.mqttClient.connected) {
-                // Don't count as failure if client is not initialized yet
                 if (this.mqttPingCount > 0) {
                     this.mqttPingFailures++;
                     if (this.globalOptions.logging !== false) {
                         utils.log(`⚠️  MQTT ping skipped: Client not connected (${this.mqttPingFailures} failures)`);
                     }
                     
-                    // Trigger reconnection if too many failures
-                    if (this.mqttPingFailures >= 5 && this.ctx.reconnectMqtt) {
+                    if (this.mqttPingFailures >= 3 && this.ctx.reconnectMqtt) {
                         utils.log(`🔄 Attempting MQTT reconnection after ${this.mqttPingFailures} ping failures...`);
                         this.mqttPingFailures = 0;
                         try {
@@ -369,23 +363,34 @@ class CookieRefreshManager {
                 return;
             }
             
-            // Send a presence update to keep MQTT alive
             const presencePayload = {
                 "make_user_available_at_ms": Date.now(),
                 "last_active_at_ms": Date.now()
             };
             
-            await this.ctx.mqttClient.publish(
-                '/orca_presence',
-                JSON.stringify({ p: presencePayload }),
-                { qos: 0, retain: false }
-            );
+            const publishPromise = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('MQTT publish timeout'));
+                }, 5000);
+                
+                this.ctx.mqttClient.publish(
+                    '/orca_presence',
+                    JSON.stringify({ p: presencePayload }),
+                    { qos: 1, retain: false },
+                    (err) => {
+                        clearTimeout(timeout);
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+            
+            await publishPromise;
             
             this.mqttPingCount++;
             this.lastMqttPing = Date.now();
-            this.mqttPingFailures = 0; // Reset failures on success
+            this.mqttPingFailures = 0;
             
-            // Log only every 10th ping to avoid spam (every 5 minutes)
             if (this.mqttPingCount % 10 === 0 && this.globalOptions.logging !== false) {
                 const minutesUp = Math.floor((Date.now() - this.lastRefresh) / 60000);
                 utils.log(`💚 MQTT Keep-Alive: ${this.mqttPingCount} pings sent | Uptime: ${minutesUp}min`);
@@ -394,12 +399,11 @@ class CookieRefreshManager {
         } catch (error) {
             this.mqttPingFailures++;
             
-            if (this.globalOptions.logging !== false && this.mqttPingFailures % 5 === 0) {
+            if (this.globalOptions.logging !== false && this.mqttPingFailures % 3 === 0) {
                 utils.log(`⚠️  MQTT ping failed (${this.mqttPingFailures} failures): ${error.message}`);
             }
             
-            // If too many failures, trigger reconnection
-            if (this.mqttPingFailures >= 10 && this.ctx.reconnectMqtt) {
+            if (this.mqttPingFailures >= 5 && this.ctx.reconnectMqtt) {
                 utils.log(`🔄 Triggering MQTT reconnection after ${this.mqttPingFailures} failures...`);
                 this.mqttPingFailures = 0;
                 try {
