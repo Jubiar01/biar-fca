@@ -26,7 +26,7 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-**Latest:** v3.6.8 - Multi-Account Support! Manage multiple bot accounts simultaneously 🎉
+**Latest:** v3.7.1 -This release fixes a critical error in the sendTypingIndicator function that caused crashes when called with flexible parameters.
 
 ---
 
