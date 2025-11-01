@@ -30,7 +30,7 @@ const facebookHeaders = {
     'sec-fetch-site': 'same-origin',
     'sec-fetch-user': '?1',
     'upgrade-insecure-requests': '1',
-    'user-agent': 'Mozilla/5.0 (Linux; Android 13; 22127RK46C Build/TKQ1.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.141 Mobile Safari/537.36 XWEB/5127 MMWEBSDK/20230604 MMWEBID/7189 MicroMessenger/8.0.38.2400(0x28002639) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64 qcloudcdn-xinan Request-Source=4 Request-Channel',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'viewport-width': '1920',
     'referer': 'https://www.facebook.com/',
     'dnt': '1'
@@ -45,23 +45,42 @@ function createSession(jar) {
         const cookieJar = new CookieJar();
         let cookies = [];
 
-        if (typeof jar.getCookies === 'function') {
+        if (typeof jar.getCookiesSync === 'function') {
+            try {
+                cookies = jar.getCookiesSync('https://www.facebook.com');
+            } catch (e) {
+                cookies = jar.getCookiesSync('http://www.facebook.com');
+            }
+        } else if (typeof jar.getCookies === 'function') {
             cookies = jar.getCookies('https://www.facebook.com');
-        } else if (typeof jar.getCookiesSync === 'function') {
-            cookies = jar.getCookiesSync('https://www.facebook.com');
         }
 
-        if (!Array.isArray(cookies)) {
-            cookies = [];
+        if (!cookies || !Array.isArray(cookies) || cookies.length === 0) {
+            if (jar.store && jar.store.idx && jar.store.idx['facebook.com']) {
+                const fbDomain = jar.store.idx['facebook.com'];
+                for (const path in fbDomain) {
+                    for (const cookieName in fbDomain[path]) {
+                        const cookie = fbDomain[path][cookieName];
+                        cookies.push(cookie);
+                    }
+                }
+            }
         }
 
-        if (cookies.length === 0) {
-            throw new Error('No cookies found in jar');
+        if (!cookies || cookies.length === 0) {
+            return null;
         }
 
         cookies.forEach(cookie => {
             try {
-                const cookieStr = cookie.key ? `${cookie.key}=${cookie.value}` : cookie.toString();
+                let cookieStr;
+                if (cookie.key && cookie.value) {
+                    cookieStr = `${cookie.key}=${cookie.value}`;
+                } else if (cookie.toString) {
+                    cookieStr = cookie.toString();
+                } else {
+                    return;
+                }
                 cookieJar.setCookieSync(cookieStr, 'https://www.facebook.com');
             } catch (err) {
                 utils.error('Error setting cookie:', err.message);
@@ -132,7 +151,7 @@ async function simulateOnlineUser(session) {
     if (!session) return false;
 
     try {
-        const response = await session.get('https://www.facebook.com/active_endpoint', {
+        const response = await session.get('https://www.facebook.com/', {
             headers: {
                 ...facebookHeaders,
                 'referer': 'https://www.facebook.com/'
@@ -147,62 +166,68 @@ async function simulateOnlineUser(session) {
 }
 
 module.exports = function (defaultFuncs, api, ctx) {
-    return function startOnlinePresence(duration = 1200000) {
-        const session = createSession(ctx.jar);
-        
-        if (!session) {
-            utils.error('Failed to initialize online presence session');
-            return { stop: () => {} };
-        }
-
-        utils.log('Starting human-like online presence simulation...');
-        utils.log(`Duration: ${duration / 60000} minutes`);
-        utils.log('┌────────────────────────────────────────────┐');
-        utils.log('│ Credits: Jonell Huthin Magallanes         │');
-        utils.log('└────────────────────────────────────────────┘');
-        
-        let activityCount = 0;
-        let stopped = false;
-        
-        const interval = setInterval(async () => {
-            if (stopped) return;
+    return function startOnlinePresence(duration = 30000) {
+        setTimeout(() => {
+            const session = createSession(ctx.jar);
             
-            await simulateHumanActivity(session);
-            activityCount++;
-            
-            if (activityCount % 3 === 0) {
-                await simulateOnlineUser(session);
+            if (!session) {
+                utils.log('⚠️  Online presence: Cookie jar not ready, skipping simulation');
+                return;
             }
-        }, 60000 + Math.random() * 90000);
 
-        const onlineInterval = setInterval(async () => {
-            if (stopped) return;
-            await simulateOnlineUser(session);
-        }, 300000 + Math.random() * 300000);
+            utils.log('Starting human-like online presence simulation...');
+            utils.log(`Duration: ${duration / 1000} seconds`);
+            utils.log('┌────────────────────────────────────────────┐');
+            utils.log('│ Credits: Jonell Huthin Magallanes         │');
+            utils.log('└────────────────────────────────────────────┘');
+            
+            let activityCount = 0;
+            let stopped = false;
+            
+            const interval = setInterval(async () => {
+                if (stopped) return;
+                
+                await simulateHumanActivity(session);
+                activityCount++;
+                
+                if (activityCount % 3 === 0) {
+                    await simulateOnlineUser(session);
+                }
+            }, 60000 + Math.random() * 90000);
 
-        const durationTimeout = setTimeout(() => {
-            stopped = true;
-            clearInterval(interval);
-            clearInterval(onlineInterval);
-            utils.log('Online presence duration completed');
-        }, duration);
+            const onlineInterval = setInterval(async () => {
+                if (stopped) return;
+                await simulateOnlineUser(session);
+            }, 300000 + Math.random() * 300000);
 
-        simulateHumanActivity(session).catch(err => {
-            utils.error('Initial activity simulation failed:', err.message);
-        });
-        
-        simulateOnlineUser(session).catch(err => {
-            utils.error('Initial online user simulation failed:', err.message);
-        });
-
-        return {
-            stop: () => {
+            const durationTimeout = setTimeout(() => {
                 stopped = true;
                 clearInterval(interval);
                 clearInterval(onlineInterval);
-                clearTimeout(durationTimeout);
-                utils.log('Online presence stopped');
-            }
+                utils.log('Online presence duration completed');
+            }, duration);
+
+            simulateHumanActivity(session).catch(err => {
+                utils.error('Initial activity simulation failed:', err.message);
+            });
+            
+            simulateOnlineUser(session).catch(err => {
+                utils.error('Initial online user simulation failed:', err.message);
+            });
+
+            this._intervals = { interval, onlineInterval, durationTimeout };
+        }, 3000);
+
+        return {
+            stop: () => {
+                if (this._intervals) {
+                    clearInterval(this._intervals.interval);
+                    clearInterval(this._intervals.onlineInterval);
+                    clearTimeout(this._intervals.durationTimeout);
+                    utils.log('Online presence stopped');
+                }
+            },
+            _intervals: null
         };
     };
 };

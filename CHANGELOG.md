@@ -4,6 +4,35 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.4] - 2025-11-01
+
+### 🔧 Bug Fixes & Improvements - Online Presence
+
+Minor update to improve the online presence simulation feature with better error handling and timing adjustments.
+
+### Fixed
+
+- **Cookie Jar Handling**: Improved cookie retrieval from jar with multiple fallback methods
+- **Timing Issue**: Added 3-second delay before initializing online presence to ensure cookies are ready
+- **Better Cookie Access**: Enhanced support for different cookie jar implementations including direct store access
+- **Error Logging**: Changed from throwing errors to graceful warnings when cookies aren't ready
+
+### Changed
+
+- **Default Duration**: Changed from 20 minutes to 10 minutes for more frequent presence updates
+- **User Agent**: Updated to standard Windows Chrome user agent for better compatibility
+- **Session Validation**: Now validates cookie availability before attempting to create session
+
+### Technical Improvements
+
+- Accesses cookie jar store directly if standard methods fail
+- Supports both `getCookiesSync` and `getCookies` methods
+- Handles cookie objects with both `key/value` and `toString()` formats
+- Returns null gracefully instead of throwing errors when cookies unavailable
+- Deferred initialization ensures cookies are fully loaded before session creation
+
+---
+
 ## [3.7.3] - 2025-11-01
 
 ### ✨ New Feature - Online Presence Simulation
