@@ -213,90 +213,18 @@ class BehaviorTracker {
  */
 class ActivityScheduler {
     constructor(options = {}) {
-        this.timezone = options.timezone || 'Asia/Manila'; // Adjust to your timezone
-        this.sleepHours = options.sleepHours || { start: 23, end: 7 }; // 11 PM to 7 AM
-        this.peakHours = options.peakHours || [12, 13, 18, 19, 20, 21]; // Lunch & evening
-        this.slowHours = options.slowHours || [6, 7, 8, 9, 14, 15]; // Morning & afternoon
-        this.weekendSlower = options.weekendSlower !== false; // Slower on weekends
-        this.enabled = options.enabled !== false;
+        this.enabled = false;
     }
     
-    /**
-     * Check if bot should be "asleep" (no responses)
-     * @returns {boolean}
-     */
     isSleepTime() {
-        if (!this.enabled) return false;
-        
-        const now = new Date();
-        const hour = now.getHours();
-        
-        // Check if in sleep hours
-        if (this.sleepHours.start > this.sleepHours.end) {
-            // Sleep hours cross midnight (e.g., 23:00 to 7:00)
-            return hour >= this.sleepHours.start || hour < this.sleepHours.end;
-        } else {
-            return hour >= this.sleepHours.start && hour < this.sleepHours.end;
-        }
+        return false;
     }
     
-    /**
-     * Get response time multiplier based on time of day
-     * @returns {number} Multiplier (1.0 = normal, 2.0 = twice as slow)
-     */
     getTimeMultiplier() {
-        if (!this.enabled) return 1.0;
-        
-        const now = new Date();
-        const hour = now.getHours();
-        const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-        
-        let multiplier = 1.0;
-        
-        // Peak hours - faster responses (but not instant)
-        if (this.peakHours.includes(hour)) {
-            multiplier = 0.8; // 20% faster
-        }
-        // Slow hours - slower responses
-        else if (this.slowHours.includes(hour)) {
-            multiplier = 1.5; // 50% slower
-        }
-        // Early morning - very slow (just woke up)
-        else if (hour === this.sleepHours.end) {
-            multiplier = 2.0; // 100% slower
-        }
-        // Late night - slower
-        else if (hour >= 22 && hour < this.sleepHours.start) {
-            multiplier = 1.3; // 30% slower
-        }
-        
-        // Weekend modifier
-        if (this.weekendSlower && isWeekend) {
-            multiplier *= 1.2; // Additional 20% slower on weekends
-        }
-        
-        return multiplier;
+        return 1.0;
     }
     
-    /**
-     * Check if should respond at all (sometimes ignore messages)
-     * @returns {boolean}
-     */
     shouldRespond() {
-        if (!this.enabled) return true;
-        
-        // During sleep hours, don't respond
-        if (this.isSleepTime()) {
-            console.log("😴 Sleep time - bot is offline");
-            return false;
-        }
-        
-        // Randomly skip 2% of messages to seem more human
-        if (Math.random() < 0.02) {
-            console.log("👀 Occasionally ignoring message (human-like)");
-            return false;
-        }
-        
         return true;
     }
 }
