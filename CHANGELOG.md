@@ -4,6 +4,80 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.2] - 2025-11-01
+
+### ✨ New Feature - Online Presence Simulation
+
+This release adds a powerful new feature to maintain realistic online presence on Facebook, helping bots stay active and appear more human-like.
+
+**Credits**: Original code concept by **Jonell Huthin Magallanes**
+
+### Added
+
+- **New API Method**: `api.startOnlinePresence(duration)`
+  - Simulates human-like browsing activity on Facebook
+  - Randomly visits different Facebook pages (feed, messages, notifications, groups, watch, marketplace)
+  - Adds realistic timing delays between actions (3-10 seconds)
+  - Periodically sends online status updates to maintain active presence
+  - Includes random "swiping" actions for added realism
+  - Configurable duration (default: 20 minutes / 1200000ms)
+  - Returns control object with `stop()` method for manual termination
+
+### Features
+
+- **Human Activity Simulation**
+  - Visits 2-5 random Facebook pages per cycle
+  - Variable delays between actions (3-10 seconds)
+  - 30% chance of performing additional "swipe" action
+  - Activity cycles every 60-150 seconds
+
+- **Online Status Management**
+  - Sends online presence updates every 5-10 minutes
+  - Integrates with Facebook's active endpoint
+  - Maintains consistent online indicator
+
+- **Smart Session Management**
+  - Uses existing cookie jar for authentication
+  - Automatic cookie handling with axios-cookiejar-support
+  - Realistic browser headers for anti-detection
+
+### Usage
+
+```javascript
+const { login } = require('biar-fca');
+
+login({ appState }, (err, api) => {
+    if (err) return console.error(err);
+    
+    const presence = api.startOnlinePresence(20 * 60 * 1000);
+    
+    console.log('Online presence started for 20 minutes');
+    
+    setTimeout(() => {
+        presence.stop();
+        console.log('Online presence stopped');
+    }, 20 * 60 * 1000);
+});
+```
+
+### Technical Details
+
+- Integrates seamlessly with existing cookie session
+- Uses axios with cookie jar support for HTTP requests
+- Randomized action selection prevents detection patterns
+- Configurable duration with auto-stop capability
+- Graceful error handling with fallback mechanisms
+
+### Benefits
+
+- Keeps bots appearing active and online
+- Reduces the risk of account restrictions
+- Simulates realistic user behavior patterns
+- Easy to integrate into existing bot workflows
+- Helps maintain session validity
+
+---
+
 ## [3.7.1] - 2025-11-01
 
 ### 🐛 Bug Fix - sendTypingIndicator
