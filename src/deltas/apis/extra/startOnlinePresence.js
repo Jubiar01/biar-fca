@@ -166,7 +166,10 @@ async function simulateOnlineUser(session) {
 }
 
 module.exports = function (defaultFuncs, api, ctx) {
-    return function startOnlinePresence(duration = 30000) {
+    return function startOnlinePresence(intervalTime = 30000) {
+        let stopped = false;
+        let mainInterval = null;
+
         setTimeout(() => {
             const session = createSession(ctx.jar);
             
@@ -175,59 +178,43 @@ module.exports = function (defaultFuncs, api, ctx) {
                 return;
             }
 
-            utils.log('Starting human-like online presence simulation...');
-            utils.log(`Duration: ${duration / 1000} seconds`);
+            utils.log('Starting continuous online presence simulation...');
+            utils.log(`Interval: Every ${intervalTime / 1000} seconds`);
             utils.log('┌────────────────────────────────────────────┐');
             utils.log('│ Credits: Jonell Huthin Magallanes         │');
             utils.log('└────────────────────────────────────────────┘');
-            
-            let activityCount = 0;
-            let stopped = false;
-            
-            const interval = setInterval(async () => {
+
+            const runPresenceCheck = async () => {
                 if (stopped) return;
                 
-                await simulateHumanActivity(session);
-                activityCount++;
-                
-                if (activityCount % 3 === 0) {
+                try {
                     await simulateOnlineUser(session);
+                    utils.log('✓ Online presence check completed');
+                } catch (err) {
+                    utils.error('Online presence check failed:', err.message);
                 }
-            }, 60000 + Math.random() * 90000);
+            };
 
-            const onlineInterval = setInterval(async () => {
-                if (stopped) return;
-                await simulateOnlineUser(session);
-            }, 300000 + Math.random() * 300000);
+            runPresenceCheck();
 
-            const durationTimeout = setTimeout(() => {
-                stopped = true;
-                clearInterval(interval);
-                clearInterval(onlineInterval);
-                utils.log('Online presence duration completed');
-            }, duration);
+            mainInterval = setInterval(() => {
+                if (stopped) {
+                    clearInterval(mainInterval);
+                    return;
+                }
+                runPresenceCheck();
+            }, intervalTime);
 
-            simulateHumanActivity(session).catch(err => {
-                utils.error('Initial activity simulation failed:', err.message);
-            });
-            
-            simulateOnlineUser(session).catch(err => {
-                utils.error('Initial online user simulation failed:', err.message);
-            });
-
-            this._intervals = { interval, onlineInterval, durationTimeout };
         }, 3000);
 
         return {
             stop: () => {
-                if (this._intervals) {
-                    clearInterval(this._intervals.interval);
-                    clearInterval(this._intervals.onlineInterval);
-                    clearTimeout(this._intervals.durationTimeout);
-                    utils.log('Online presence stopped');
+                stopped = true;
+                if (mainInterval) {
+                    clearInterval(mainInterval);
                 }
-            },
-            _intervals: null
+                utils.log('Online presence stopped');
+            }
         };
     };
 };

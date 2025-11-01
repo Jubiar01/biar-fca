@@ -4,6 +4,41 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.7.5] - 2025-11-01
+
+### 🐛 Critical Fix - Continuous Online Presence
+
+Fixed major bug where online presence simulation only ran once instead of continuously.
+
+### Fixed
+
+- **One-Time Execution Bug**: Online presence now runs continuously every 30 seconds instead of stopping after first run
+- **Interval System**: Implemented proper setInterval for continuous presence checks
+- **Session Persistence**: Maintains active session throughout the bot's lifetime
+
+### Changed
+
+- **Behavior**: Changed from "run once for duration" to "run continuously every interval"
+- **Default Interval**: Set to 30 seconds (30000ms) for frequent online status updates
+- **Logging**: Updated to show "continuous" simulation with interval time instead of duration
+
+### Technical Details
+
+- Uses `setInterval` to repeatedly check online status every 30 seconds
+- Initializes session once and reuses it for all presence checks
+- Proper cleanup with `stop()` method to clear intervals
+- Runs initial presence check immediately, then every 30 seconds thereafter
+
+### Usage
+
+```javascript
+const presence = api.startOnlinePresence(30000);
+```
+
+The bot will now maintain online status continuously every 30 seconds until stopped.
+
+---
+
 ## [3.7.4] - 2025-11-01
 
 ### 🔧 Bug Fixes & Improvements - Online Presence
