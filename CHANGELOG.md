@@ -4,6 +4,27 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.1] - 2025-11-02
+
+### Fixed
+
+- **Bot Not Responding After Wrong Command**: Critical fix for command processing
+  - Added robust error handling wrapper around user callback in MQTT listener
+  - Prevents synchronous errors in message handler from breaking subsequent message processing
+  - Ensures bot continues responding even if a command execution fails
+  - Added safety try-catch wrapper to protect global callback execution
+  - Errors in message handler are now properly caught and logged without breaking the listener
+  - Users typing wrong commands followed by correct commands will now get responses
+
+### Changed
+
+- **Enhanced MQTT Listener Error Resilience** (`listenMqtt.js`):
+  - Wrapped user callback in try-catch to prevent handler exceptions from breaking message flow
+  - Errors in callback are logged but don't stop MQTT message processing
+  - Maintains connection stability even with buggy command handlers
+
+---
+
 ## [3.8.0] - 2025-11-01
 
 ### 🚀 Major Enhancement - Ultra-Reliable MQTT Connection System

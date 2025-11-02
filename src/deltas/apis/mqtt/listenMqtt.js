@@ -610,9 +610,19 @@ module.exports = (defaultFuncs, api, ctx) => {
             msgEmitter.emit("message", message);
         };
 
-        // Allow custom callback override
+        // Allow custom callback override with error safety wrapper
         if (typeof callback === 'function') {
-            globalCallback = callback;
+            const userCallback = callback;
+            globalCallback = (error, message) => {
+                try {
+                    userCallback(error, message);
+                } catch (callbackError) {
+                    utils.error("Error in user callback (message handler):", callbackError);
+                    if (!error) {
+                        msgEmitter.emit("error", callbackError);
+                    }
+                }
+            };
         }
 
         // Initialize connection

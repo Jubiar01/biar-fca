@@ -810,7 +810,7 @@ async function login(credentials, options, callback) {
             return callback(null, loginApi);
         },
         setOptionsModel,
-        buildAPIModel,
+        buildAPIModel,  
         api,
         fbLink, 
         ERROR_RETRIEVING
