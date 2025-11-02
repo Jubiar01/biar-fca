@@ -26,10 +26,6 @@ If you encounter issues or want to give feedback, feel free to message us via Fa
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
-**Latest:** v.3.7.6 This release adds a powerful new feature to maintain realistic online presence on Facebook, helping bots stay active and appear more human-like.
-
-**Credits**: Original code concept by **Jonell Huthin Magallanes**
-
 ---
 
 ## ✨ Features

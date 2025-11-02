@@ -228,16 +228,16 @@ class PatternDiffuser {
 
 /**
  * Cookie Refresh Manager
- * Maintains fresh cookies every 20 minutes to keep the bot online
- * Now includes MQTT keep-alive pings for enhanced connection stability
+ * Maintains fresh cookies with human-like intervals to keep the bot online
+ * Now includes MQTT keep-alive pings with randomized timing for enhanced stealth
  */
 class CookieRefreshManager {
     constructor(ctx, defaultFuncs, globalOptions) {
         this.ctx = ctx;
         this.defaultFuncs = defaultFuncs;
         this.globalOptions = globalOptions;
-        this.refreshInterval = 1200000; // 20 minutes (20 * 60 * 1000)
-        this.mqttPingInterval = 30000; // 30 seconds for MQTT keep-alive
+        this.refreshInterval = 1800000; // 30 minutes (30 * 60 * 1000) - More realistic
+        this.mqttPingInterval = 120000; // 2 minutes for MQTT keep-alive - Less aggressive
         this.isRefreshing = false;
         this.refreshTimer = null;
         this.mqttPingTimer = null;
@@ -257,19 +257,27 @@ class CookieRefreshManager {
             return; // Already running
         }
         
+        const refreshMinutes = Math.floor(this.refreshInterval / 60000);
+        const pingMinutes = Math.floor(this.mqttPingInterval / 60000);
+        
         utils.log("🔄 Cookie Refresh Manager: STARTED");
-        utils.log("   • Cookie refresh: Every 20 minutes");
-        utils.log("   • MQTT keep-alive: Every 30 seconds");
+        utils.log(`   • Cookie refresh: Every ${refreshMinutes} minutes (with randomization)`);
+        utils.log(`   • MQTT keep-alive: Every ${pingMinutes} minutes (with randomization)`);
         
-        // Initial refresh after 30 seconds to allow bot to fully initialize
-        setTimeout(() => this.refreshCookies(), 30000);
+        const initialDelay = 60000 + Math.random() * 120000;
+        setTimeout(() => this.refreshCookies(), initialDelay);
         
-        // Set up recurring refresh every 20 minutes
-        this.refreshTimer = setInterval(() => {
-            this.refreshCookies();
-        }, this.refreshInterval);
+        const scheduleNextRefresh = () => {
+            const jitter = Math.random() * 300000;
+            const nextInterval = this.refreshInterval + jitter;
+            this.refreshTimer = setTimeout(() => {
+                this.refreshCookies();
+                scheduleNextRefresh();
+            }, nextInterval);
+        };
         
-        // Start MQTT keep-alive pings (every 30 seconds)
+        scheduleNextRefresh();
+        
         this.startMqttKeepAlive();
     }
     
@@ -278,17 +286,17 @@ class CookieRefreshManager {
      */
     stop() {
         if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
+            clearTimeout(this.refreshTimer);
             this.refreshTimer = null;
         }
         
         if (this.mqttPingTimer) {
-            clearInterval(this.mqttPingTimer);
+            clearTimeout(this.mqttPingTimer);
             this.mqttPingTimer = null;
         }
 
         if (this.healthCheckTimer) {
-            clearInterval(this.healthCheckTimer);
+            clearTimeout(this.healthCheckTimer);
             this.healthCheckTimer = null;
         }
         
@@ -303,17 +311,30 @@ class CookieRefreshManager {
             return; // Already running
         }
         
-        // Send initial ping after 5 seconds
-        setTimeout(() => this.sendMqttPing(), 5000);
+        const initialDelay = 30000 + Math.random() * 30000;
+        setTimeout(() => this.sendMqttPing(), initialDelay);
         
-        // Set up recurring MQTT pings every 30 seconds
-        this.mqttPingTimer = setInterval(() => {
-            this.sendMqttPing();
-        }, this.mqttPingInterval);
+        const scheduleNextPing = () => {
+            const jitter = Math.random() * 60000;
+            const nextInterval = this.mqttPingInterval + jitter;
+            this.mqttPingTimer = setTimeout(() => {
+                this.sendMqttPing();
+                scheduleNextPing();
+            }, nextInterval);
+        };
+        
+        scheduleNextPing();
 
-        this.healthCheckTimer = setInterval(() => {
-            this.checkConnectionHealth();
-        }, 30000);
+        const scheduleNextHealthCheck = () => {
+            const jitter = Math.random() * 60000;
+            const nextInterval = 180000 + jitter;
+            this.healthCheckTimer = setTimeout(() => {
+                this.checkConnectionHealth();
+                scheduleNextHealthCheck();
+            }, nextInterval);
+        };
+        
+        scheduleNextHealthCheck();
     }
 
     checkConnectionHealth() {
@@ -322,9 +343,9 @@ class CookieRefreshManager {
         }
 
         const timeSinceLastMessage = Date.now() - this.ctx.lastMessageTime;
-        const threeMinutes = 3 * 60 * 1000;
+        const tenMinutes = 10 * 60 * 1000;
 
-        if (timeSinceLastMessage > threeMinutes && this.ctx.mqttClient && this.ctx.mqttClient.connected) {
+        if (timeSinceLastMessage > tenMinutes && this.ctx.mqttClient && this.ctx.mqttClient.connected) {
             if (this.globalOptions.logging !== false) {
                 utils.log(`⚠️  No MQTT activity for ${Math.floor(timeSinceLastMessage / 60000)} minutes. Forcing reconnection...`);
             }
@@ -346,11 +367,11 @@ class CookieRefreshManager {
             if (!this.ctx.mqttClient || !this.ctx.mqttClient.connected) {
                 if (this.mqttPingCount > 0) {
                     this.mqttPingFailures++;
-                    if (this.globalOptions.logging !== false) {
+                    if (this.globalOptions.logging !== false && this.mqttPingFailures % 5 === 0) {
                         utils.log(`⚠️  MQTT ping skipped: Client not connected (${this.mqttPingFailures} failures)`);
                     }
                     
-                    if (this.mqttPingFailures >= 3 && this.ctx.reconnectMqtt) {
+                    if (this.mqttPingFailures >= 10 && this.ctx.reconnectMqtt) {
                         utils.log(`🔄 Attempting MQTT reconnection after ${this.mqttPingFailures} ping failures...`);
                         this.mqttPingFailures = 0;
                         try {
@@ -391,7 +412,7 @@ class CookieRefreshManager {
             this.lastMqttPing = Date.now();
             this.mqttPingFailures = 0;
             
-            if (this.mqttPingCount % 10 === 0 && this.globalOptions.logging !== false) {
+            if (this.mqttPingCount % 20 === 0 && this.globalOptions.logging !== false) {
                 const minutesUp = Math.floor((Date.now() - this.lastRefresh) / 60000);
                 utils.log(`💚 MQTT Keep-Alive: ${this.mqttPingCount} pings sent | Uptime: ${minutesUp}min`);
             }
@@ -399,11 +420,11 @@ class CookieRefreshManager {
         } catch (error) {
             this.mqttPingFailures++;
             
-            if (this.globalOptions.logging !== false && this.mqttPingFailures % 3 === 0) {
+            if (this.globalOptions.logging !== false && this.mqttPingFailures % 5 === 0) {
                 utils.log(`⚠️  MQTT ping failed (${this.mqttPingFailures} failures): ${error.message}`);
             }
             
-            if (this.mqttPingFailures >= 5 && this.ctx.reconnectMqtt) {
+            if (this.mqttPingFailures >= 10 && this.ctx.reconnectMqtt) {
                 utils.log(`🔄 Triggering MQTT reconnection after ${this.mqttPingFailures} failures...`);
                 this.mqttPingFailures = 0;
                 try {
@@ -496,11 +517,12 @@ class CookieRefreshManager {
             // Log every refresh since it's every 20 minutes
             if (this.globalOptions.logging !== false) {
                 const minutesAgo = Math.floor(timeSinceLastRefresh / 60000);
+                const nextRefreshMin = Math.floor(this.refreshInterval / 60000);
                 utils.log(`✅ Cookie refresh #${this.refreshCount} completed`);
                 utils.log(`   • Cookies updated: ${cookiesUpdated}`);
                 utils.log(`   • Tokens updated: ${tokensUpdated ? 'Yes' : 'No'}`);
                 utils.log(`   • Time since last: ${minutesAgo > 0 ? minutesAgo + 'min' : Math.floor(timeSinceLastRefresh / 1000) + 's'} ago`);
-                utils.log(`   • Next refresh in: 20 minutes`);
+                utils.log(`   • Next refresh in: ~${nextRefreshMin} minutes (with randomization)`);
             }
             
         } catch (error) {
@@ -677,7 +699,7 @@ class EnhancedAPI {
  * @param {boolean} [options.autoRotateSession=true] Automatically rotate session fingerprints.
  * @param {boolean} [options.randomUserAgent=true] Use random realistic user agents.
  * @param {boolean} [options.cookieRefresh=true] Enable automatic cookie refresh and MQTT keep-alive to maintain bot online status.
- * @param {number} [options.cookieRefreshInterval=1200000] Cookie refresh interval in milliseconds (default: 20 minutes).
+ * @param {number} [options.cookieRefreshInterval=1800000] Cookie refresh interval in milliseconds (default: 30 minutes).
  * @param {function} callback The callback function to be invoked upon login completion.
  * @returns {Promise<void>}
  */
@@ -726,7 +748,7 @@ async function login(credentials, options, callback) {
         randomUserAgent: options.randomUserAgent !== false,
         // Cookie refresh options
         cookieRefresh: options.cookieRefresh !== false, // Default: true (auto-refresh cookies)
-        cookieRefreshInterval: options.cookieRefreshInterval || 1200000, // Default: 20 minutes (20 * 60 * 1000)
+        cookieRefreshInterval: options.cookieRefreshInterval || 1800000, // Default: 30 minutes (30 * 60 * 1000)
     };
     
     Object.assign(globalOptions, defaultOptions, options);
@@ -774,12 +796,14 @@ async function login(credentials, options, callback) {
                 
                 // Log cookie refresh info
                 if (options.logging !== false) {
-                    const minutes = Math.floor(cookieRefreshInterval / 60000);
-                    utils.log("🔄 Keep-Alive System: ENABLED");
-                    utils.log(`   • Cookie refresh: Every ${minutes} minute${minutes > 1 ? 's' : ''}`);
-                    utils.log(`   • MQTT keep-alive: Every 30 seconds`);
-                    utils.log(`   • First cookie refresh: in 30 seconds`);
-                    utils.log(`   • First MQTT ping: in 5 seconds`);
+                    const refreshMinutes = Math.floor(cookieRefreshInterval / 60000);
+                    const pingMinutes = Math.floor(cookieRefreshManager.mqttPingInterval / 60000);
+                    utils.log("🔄 Keep-Alive System: ENABLED (Stealth Mode)");
+                    utils.log(`   • Cookie refresh: ~${refreshMinutes} minutes (randomized)`);
+                    utils.log(`   • MQTT keep-alive: ~${pingMinutes} minutes (randomized)`);
+                    utils.log(`   • First cookie refresh: in 1-3 minutes`);
+                    utils.log(`   • First MQTT ping: in 30-60 seconds`);
+                    utils.log(`   • All timings randomized to avoid detection patterns`);
                 }
             }
             

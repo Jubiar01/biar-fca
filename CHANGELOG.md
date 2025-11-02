@@ -4,6 +4,89 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.2] - 2025-11-02
+
+### 🛡️ Critical Anti-Detection Improvements
+
+This release significantly reduces Facebook's ability to detect and block bot accounts by making bot behavior patterns much more human-like and unpredictable.
+
+### Fixed
+
+- **Facebook Account Blocks/Logouts**: Major anti-detection overhaul
+  - Reduced MQTT keep-alive interval: 30s → **60s** (less aggressive, more human-like)
+  - Reduced cookie refresh frequency: Every 20 min → **Every 30 minutes** (less predictable)
+  - Reduced MQTT ping frequency: Every 30s → **Every 2 minutes** (more realistic)
+  - Increased presence update interval: 25s → **3 minutes** (matches real human behavior)
+  - Increased idle detection timeout: 3 min → **8 minutes** (less paranoid reconnections)
+  - Increased health check interval: 30s → **2-3 minutes** (randomized, less obvious)
+  - Increased reconnection tolerance: 3 failures → **10 failures** (avoids spam reconnections)
+
+### Changed
+
+- **Randomized Timing Patterns** (Critical for stealth):
+  - Cookie refresh now uses randomized intervals (+0-5 minutes jitter)
+  - MQTT pings use randomized intervals (+0-1 minute jitter)
+  - Health checks use randomized intervals (+0-1 minute jitter)
+  - Initial delays randomized: 1-3 minutes for cookie refresh, 30-60s for MQTT ping
+  - All timings avoid fixed patterns that Facebook can detect
+
+- **Reduced Logging Verbosity**:
+  - MQTT ping success logs: Every 10 pings → **Every 20 pings**
+  - MQTT ping failure logs: Every 3 failures → **Every 5 failures**
+  - Cookie refresh failure logs: Every failure → **Every 3 failures**
+  - Reduces log spam and computational overhead
+
+- **Smarter Reconnection Logic**:
+  - Less aggressive: Reconnects after 10 failures instead of 3-5
+  - More patient: Waits 5 seconds between reconnection attempts (was 3s)
+  - Less paranoid: Tolerates 10 minutes of inactivity before forcing reconnection (was 3 min)
+  - Avoids creating suspicious rapid reconnection patterns
+
+### Technical Details
+
+**MQTT Configuration Changes** (`listenMqtt.js`):
+```javascript
+// Before (Too Aggressive - Detectable)
+KEEPALIVE_INTERVAL: 30,           // Every 30 seconds
+PRESENCE_UPDATE_INTERVAL: 25000,  // Every 25 seconds
+IDLE_CHECK_INTERVAL: 30000,       // Check every 30s
+MAX_IDLE_TIME: 180000,            // Force reconnect after 3min
+
+// After (Human-like - Stealthy)
+KEEPALIVE_INTERVAL: 60,           // Every 60 seconds
+PRESENCE_UPDATE_INTERVAL: 180000, // Every 3 minutes
+IDLE_CHECK_INTERVAL: 120000,      // Check every 2min
+MAX_IDLE_TIME: 480000,            // Force reconnect after 8min
+```
+
+**Cookie Refresh Changes** (`client.js`):
+```javascript
+// Before (Too Frequent - Detectable)
+refreshInterval: 1200000,  // 20 minutes, fixed timing
+mqttPingInterval: 30000,   // 30 seconds, fixed timing
+
+// After (Human-like - Stealthy)
+refreshInterval: 1800000,  // 30 minutes base + 0-5min jitter
+mqttPingInterval: 120000,  // 2 minutes base + 0-1min jitter
+```
+
+### Impact
+
+✅ **Significantly reduced risk of Facebook account blocks**
+✅ **More human-like behavior patterns**
+✅ **Maintains bot reliability and responsiveness**
+✅ **Lower CPU and network usage**
+✅ **Less log spam**
+
+### Migration Notes
+
+- Existing bots will automatically use the new timings on restart
+- No configuration changes required
+- Cookie refresh and MQTT pings will be less frequent but more stealthy
+- Bots will still respond quickly to messages (no delay in message handling)
+
+---
+
 ## [3.8.1] - 2025-11-02
 
 ### Fixed
