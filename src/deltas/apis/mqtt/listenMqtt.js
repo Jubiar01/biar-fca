@@ -18,11 +18,43 @@ const accountBlockTracker = {
     blockReason: null
 };
 
+// Constants
+const MQTT_TOPICS = [
+    "/legacy_web", "/webrtc", "/rtc_multi", "/onevc", "/br_sr", "/sr_res",
+    "/t_ms", "/thread_typing", "/orca_typing_notifications", "/notify_disconnect",
+    "/orca_presence", "/inbox", "/mercury", "/messaging_events",
+    "/orca_message_notifications", "/pp", "/webrtc_response"
+];
+
+const MQTT_CONFIG = {
+    KEEPALIVE_INTERVAL: 60,
+    CONNECT_TIMEOUT: 60000,
+    RECONNECT_PERIOD: 5000,
+    MAX_RECONNECT_ATTEMPTS: 10,
+    PRESENCE_UPDATE_INTERVAL: 180000,
+    IDLE_CHECK_INTERVAL: 120000,
+    MAX_IDLE_TIME: 8 * 60 * 1000,
+    MIN_RECONNECT_TIME: 4 * 60 * 60 * 1000,
+    MAX_RECONNECT_TIME: 8 * 60 * 60 * 1000,
+    PROTOCOL_VERSION: 3,
+    QOS_LEVEL: 1,
+    INITIAL_RETRY_DELAY: 2000,
+    MAX_RETRY_DELAY: 30000,
+    RETRY_MULTIPLIER: 1.5
+};
+
+const SYNC_CONFIG = {
+    API_VERSION: 10,
+    MAX_DELTAS: 1000,
+    BATCH_SIZE: 500,
+    ENCODING: "JSON"
+};
+
 // MQTT reconnection state
 const mqttReconnectionTracker = {
     attemptCount: 0,
     lastAttemptTime: 0,
-    currentDelay: MQTT_CONFIG.INITIAL_RETRY_DELAY,
+    currentDelay: 2000,
     isReconnecting: false
 };
 
@@ -48,38 +80,6 @@ function resetReconnectionState() {
     mqttReconnectionTracker.isReconnecting = false;
 }
 
-// Constants
-const MQTT_TOPICS = [
-    "/legacy_web", "/webrtc", "/rtc_multi", "/onevc", "/br_sr", "/sr_res",
-    "/t_ms", "/thread_typing", "/orca_typing_notifications", "/notify_disconnect",
-    "/orca_presence", "/inbox", "/mercury", "/messaging_events",
-    "/orca_message_notifications", "/pp", "/webrtc_response"
-];
-
-const MQTT_CONFIG = {
-    KEEPALIVE_INTERVAL: 60,
-    CONNECT_TIMEOUT: 60000,
-    RECONNECT_PERIOD: 5000,
-    MAX_RECONNECT_ATTEMPTS: 10,
-    PRESENCE_UPDATE_INTERVAL: 180000,
-    IDLE_CHECK_INTERVAL: 120000,
-    MAX_IDLE_TIME: 8 * 60 * 1000,
-    MIN_RECONNECT_TIME: 4 * 60 * 60 * 1000,
-    MAX_RECONNECT_TIME: 8 * 60 * 60 * 1000,
-    PROTOCOL_VERSION: 3,
-    QOS_LEVEL: 1,
-    // Enhanced retry backoff settings
-    INITIAL_RETRY_DELAY: 2000,
-    MAX_RETRY_DELAY: 30000,
-    RETRY_MULTIPLIER: 1.5
-};
-
-const SYNC_CONFIG = {
-    API_VERSION: 10,
-    MAX_DELTAS: 1000,
-    BATCH_SIZE: 500,
-    ENCODING: "JSON"
-};
 
 /**
  * Detects if the account has been blocked by Facebook
