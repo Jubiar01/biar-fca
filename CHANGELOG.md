@@ -4,6 +4,75 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.4] - 2025-11-02
+
+### 🔧 Enhanced Connection Stability & Session Management
+
+Major improvements to MQTT connection reliability and session validation to prevent account logout issues.
+
+### Fixed
+
+- **ESLint Error**: Fixed `prefer-const` error in `listenMqtt.js` line 438
+- **MQTT "Server Unavailable" Errors**: Improved handling of connection refusal and server unavailability
+  - Added exponential backoff for reconnection attempts (2s → 30s max delay)
+  - Tracks reconnection attempts and provides better error feedback
+  - Prevents aggressive reconnection that could trigger Facebook rate limiting
+  
+- **Session Expiration Detection**: Better detection and handling of expired sessions
+  - Validates essential cookies (`c_user`, `xs`, `datr`) before use
+  - Checks for expired cookies and warns users
+  - Periodic session validation (every 5 minutes)
+  
+- **Authentication Error Handling**: Enhanced error detection for logout scenarios
+  - Detects 401/403 responses indicating session expiration
+  - Stops activity simulation when session becomes invalid
+  - Provides clear warnings when account is logged out
+
+### Added
+
+- **MQTT Reconnection Improvements** (`listenMqtt.js`):
+  - `mqttReconnectionTracker` state to track reconnection attempts
+  - `getReconnectionDelay()` function for exponential backoff calculation
+  - `resetReconnectionState()` to reset on successful connection
+  - Enhanced error messages with attempt counts
+  - Max reconnection attempts limit (10 attempts before extended delay)
+  
+- **Session Validation System** (`startOnlinePresence.js`):
+  - `validateCookies()` - Validates presence of essential Facebook cookies
+  - `validateSession()` - Tests session validity with actual HTTP request
+  - Cookie expiration checking
+  - Session validation interval (5 minutes)
+  - Better error messages for session issues
+  
+- **Enhanced Presence Activity Simulation**:
+  - Session validation before performing human-like activities
+  - Authentication error detection during activity simulation
+  - Graceful handling of session expiration during operations
+  - Better logging with ✓ and ⚠️ indicators
+
+### Changed
+
+- **MQTT Configuration Updates**:
+  - Added `MAX_RECONNECT_ATTEMPTS` (10 attempts)
+  - Added `INITIAL_RETRY_DELAY` (2 seconds)
+  - Added `MAX_RETRY_DELAY` (30 seconds)
+  - Added `RETRY_MULTIPLIER` (1.5x backoff)
+  
+- **Improved Error Messages**:
+  - More descriptive MQTT connection error messages
+  - Better visibility of reconnection attempt progress
+  - Clearer session validation warnings
+  - Added emoji indicators for better log readability
+
+### Technical Details
+
+- Reconnection now uses exponential backoff instead of fixed 5-second delay
+- Session validation helps detect account logout before operations fail
+- Cookie validation prevents using invalid/expired sessions
+- Better cleanup of intervals and connections on errors
+
+---
+
 ## [3.8.3] - 2025-11-02
 
 ### 🚨 Critical Fix - Account Block Detection System

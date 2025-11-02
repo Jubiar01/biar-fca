@@ -15,6 +15,15 @@ const ACTIONS = [
     'https://www.facebook.com/marketplace'
 ];
 
+// Session validation state
+const sessionState = {
+    lastValidation: 0,
+    validationInterval: 5 * 60 * 1000, // Validate every 5 minutes
+    failureCount: 0,
+    maxFailures: 3,
+    isValid: true
+};
+
 const facebookHeaders = {
     'authority': 'www.facebook.com',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -34,10 +43,120 @@ const facebookHeaders = {
     'dnt': '1'
 };
 
+/**
+ * Validates if the session cookies are still valid
+ * @param {Object} jar - Cookie jar to validate
+ * @returns {boolean} True if session appears valid
+ */
+function validateCookies(jar) {
+    try {
+        if (!jar) return false;
+        
+        let cookies = [];
+        
+        if (typeof jar.getCookiesSync === 'function') {
+            try {
+                cookies = jar.getCookiesSync('https://www.facebook.com');
+            } catch (e) {
+                cookies = jar.getCookiesSync('http://www.facebook.com');
+            }
+        }
+        
+        // Check for essential cookies
+        const cookieNames = cookies.map(c => c.key || c.name);
+        const hasEssentialCookies = cookieNames.includes('c_user') && 
+                                   (cookieNames.includes('xs') || cookieNames.includes('datr'));
+        
+        if (!hasEssentialCookies) {
+            utils.warn('[PRESENCE] ⚠️  Missing essential cookies (c_user or xs). Session may be invalid.');
+            return false;
+        }
+        
+        // Check if cookies are expired
+        const now = Date.now();
+        const hasExpiredCookies = cookies.some(cookie => {
+            if (cookie.expires && cookie.expires !== 'Infinity') {
+                const expiryTime = new Date(cookie.expires).getTime();
+                return expiryTime <= now;
+            }
+            return false;
+        });
+        
+        if (hasExpiredCookies) {
+            utils.warn('[PRESENCE] ⚠️  Some cookies have expired. Session may need refresh.');
+            return false;
+        }
+        
+        return true;
+    } catch (error) {
+        utils.error('[PRESENCE] Cookie validation error:', error.message);
+        return false;
+    }
+}
+
+/**
+ * Validates the session by making a simple request to Facebook
+ * @param {Object} session - Axios session to validate
+ * @returns {Promise<boolean>} True if session is valid
+ */
+async function validateSession(session) {
+    try {
+        const now = Date.now();
+        
+        // Only validate if enough time has passed
+        if (now - sessionState.lastValidation < sessionState.validationInterval) {
+            return sessionState.isValid;
+        }
+        
+        sessionState.lastValidation = now;
+        
+        const response = await session.get('https://www.facebook.com/', {
+            timeout: 15000,
+            validateStatus: (status) => status < 500
+        });
+        
+        // Check if redirected to login page
+        if (response.request?.path?.includes('/login') || 
+            response.data?.includes('login_form') ||
+            response.status === 401 || 
+            response.status === 403) {
+            
+            sessionState.failureCount++;
+            sessionState.isValid = false;
+            
+            utils.warn(`[PRESENCE] ⚠️  Session validation failed (${sessionState.failureCount}/${sessionState.maxFailures})`);
+            
+            if (sessionState.failureCount >= sessionState.maxFailures) {
+                utils.error('[PRESENCE] ❌ Session is no longer valid. Account may be logged out.');
+            }
+            
+            return false;
+        }
+        
+        // Session is valid, reset failure count
+        sessionState.failureCount = 0;
+        sessionState.isValid = true;
+        
+        return true;
+    } catch (error) {
+        sessionState.failureCount++;
+        sessionState.isValid = false;
+        
+        utils.error('[PRESENCE] Session validation error:', error.message);
+        return false;
+    }
+}
+
 function createSession(jar) {
     try {
         if (!jar) {
             throw new Error('Cookie jar is required');
+        }
+        
+        // Validate cookies before creating session
+        if (!validateCookies(jar)) {
+            utils.warn('[PRESENCE] Cookie validation failed. Session may not work properly.');
+            // Continue anyway, but session might fail
         }
 
         const cookieJar = new CookieJar();
@@ -66,6 +185,7 @@ function createSession(jar) {
         }
 
         if (!cookies || cookies.length === 0) {
+            utils.error('[PRESENCE] No cookies found in jar.');
             return null;
         }
 
@@ -81,7 +201,7 @@ function createSession(jar) {
                 }
                 cookieJar.setCookieSync(cookieStr, 'https://www.facebook.com');
             } catch (err) {
-                utils.error('Error setting cookie:', err.message);
+                utils.error('[PRESENCE] Error setting cookie:', err.message);
             }
         });
 
@@ -93,7 +213,7 @@ function createSession(jar) {
             maxRedirects: 5
         }));
     } catch (error) {
-        utils.error('Session creation failed:', error.message);
+        utils.error('[PRESENCE] Session creation failed:', error.message);
         return null;
     }
 }
@@ -102,6 +222,13 @@ async function simulateHumanActivity(session) {
     if (!session) return false;
 
     try {
+        // Validate session first
+        const isValid = await validateSession(session);
+        if (!isValid) {
+            utils.warn('[PRESENCE] Session validation failed. Skipping human activity simulation.');
+            return false;
+        }
+        
         const actions = [...ACTIONS];
         const shuffleActions = () => actions.sort(() => Math.random() - 0.5);
         
@@ -116,11 +243,19 @@ async function simulateHumanActivity(session) {
                     headers: {
                         ...facebookHeaders,
                         'referer': 'https://www.facebook.com/'
-                    }
+                    },
+                    validateStatus: (status) => status < 500
                 });
 
+                // Check for authentication issues
+                if (response.status === 401 || response.status === 403) {
+                    utils.error('[PRESENCE] ❌ Authentication failed. Session expired or account logged out.');
+                    sessionState.isValid = false;
+                    return false;
+                }
+
                 if (response.status === 200) {
-                    console.log(`[PRESENCE] Activity: ${action}`);
+                    console.log(`[PRESENCE] ✓ Activity: ${action}`);
                     
                     if (Math.random() > 0.7) {
                         await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 5000));
@@ -130,11 +265,17 @@ async function simulateHumanActivity(session) {
                                 'referer': action
                             }
                         });
-                        console.log('[PRESENCE] Swiping action completed');
+                        console.log('[PRESENCE] ✓ Swiping action completed');
                     }
                 }
             } catch (err) {
-                console.error(`[PRESENCE] Failed to access ${action}:`, err.message);
+                // Check if it's a network error or authentication error
+                if (err.response?.status === 401 || err.response?.status === 403) {
+                    utils.error('[PRESENCE] ❌ Authentication error:', err.message);
+                    sessionState.isValid = false;
+                    return false;
+                }
+                console.error(`[PRESENCE] ⚠️  Failed to access ${action}:`, err.message);
             }
         }
         
