@@ -10,6 +10,14 @@ const { parseDelta } = require('./deltas/value');
 let form = {};
 let getSeqID;
 
+// Account block detection state
+const accountBlockTracker = {
+    consecutiveFailures: 0,
+    lastFailureTime: 0,
+    isBlocked: false,
+    blockReason: null
+};
+
 // Constants
 const MQTT_TOPICS = [
     "/legacy_web", "/webrtc", "/rtc_multi", "/onevc", "/br_sr", "/sr_res",
@@ -37,6 +45,87 @@ const SYNC_CONFIG = {
     BATCH_SIZE: 500,
     ENCODING: "JSON"
 };
+
+/**
+ * Detects if the account has been blocked by Facebook
+ * @param {Error} error - The error object from Facebook
+ * @returns {boolean} True if account is blocked
+ */
+function isAccountBlocked(error) {
+    const errorMsg = error?.message || '';
+    const errorDetail = error?.error || '';
+    const originalError = error?.details?.originalError?.error || '';
+    
+    return errorMsg.includes('Facebook blocked the login') ||
+           errorMsg.includes('Not logged in') ||
+           errorDetail === 'Not logged in.' ||
+           originalError === 'Not logged in.';
+}
+
+/**
+ * Handles account block detection and prevents infinite reconnection loops
+ * @param {Error} error - The error from getSeqID
+ * @param {Object} ctx - Application context
+ * @returns {boolean} True if should stop reconnecting
+ */
+function handleAccountBlockDetection(error, ctx) {
+    if (isAccountBlocked(error)) {
+        accountBlockTracker.consecutiveFailures++;
+        accountBlockTracker.lastFailureTime = Date.now();
+        
+        if (accountBlockTracker.consecutiveFailures >= 3) {
+            accountBlockTracker.isBlocked = true;
+            accountBlockTracker.blockReason = 'Facebook has logged out this account';
+            
+            ctx.loggedIn = false;
+            
+            utils.error("\n" + "=".repeat(80));
+            utils.error("🚨 ACCOUNT BLOCKED BY FACEBOOK 🚨");
+            utils.error("=".repeat(80));
+            utils.error("Your Facebook account has been logged out by Facebook's security system.");
+            utils.error("");
+            utils.error("This happens when:");
+            utils.error("  • Facebook detects automated/bot activity");
+            utils.error("  • The account was logged in from a suspicious location");
+            utils.error("  • Too many rapid actions were performed");
+            utils.error("  • The appstate.json is expired or invalid");
+            utils.error("");
+            utils.error("TO FIX THIS:");
+            utils.error("  1. Generate a NEW appstate.json from a fresh browser session");
+            utils.error("  2. Use a DIFFERENT Facebook account (this one may be flagged)");
+            utils.error("  3. Login to Facebook in a browser first to verify the account");
+            utils.error("  4. Wait 24-48 hours before trying again with this account");
+            utils.error("");
+            utils.error("STOPPING all reconnection attempts to prevent spam...");
+            utils.error("=".repeat(80) + "\n");
+            
+            if (ctx.mqttClient) {
+                try {
+                    ctx.mqttClient.end(true);
+                    ctx.mqttClient = null;
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            
+            if (ctx.presenceInterval) {
+                clearInterval(ctx.presenceInterval);
+                ctx.presenceInterval = null;
+            }
+            
+            if (ctx.idleCheckInterval) {
+                clearInterval(ctx.idleCheckInterval);
+                ctx.idleCheckInterval = null;
+            }
+            
+            return true;
+        }
+    } else {
+        accountBlockTracker.consecutiveFailures = 0;
+    }
+    
+    return false;
+}
 
 /**
  * Generates a RFC4122 version 4 compliant UUID
@@ -225,11 +314,22 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
             utils.warn("🔌 MQTT connection closed.");
             ctx.mqttConnected = false;
             
+            // Check if account is blocked before attempting reconnection
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Reconnection cancelled: Account blocked by Facebook.");
+                return;
+            }
+            
             // Only attempt reconnection if not logging out and autoReconnect is enabled
             if (ctx.loggedIn !== false && ctx.globalOptions && ctx.globalOptions.autoReconnect !== false) {
                 utils.log("Will attempt reconnection in 5 seconds...");
                 setTimeout(() => {
-                    // Double-check we're still logged in before reconnecting
+                    // Double-check account not blocked and still logged in
+                    if (accountBlockTracker.isBlocked) {
+                        utils.log("Reconnection cancelled: Account blocked by Facebook.");
+                        return;
+                    }
+                    
                     if (ctx.loggedIn !== false && (!ctx.mqttClient || !ctx.mqttClient.connected)) {
                         utils.log("🔄 Triggering MQTT reconnection...");
                         getSeqID();
@@ -469,6 +569,12 @@ module.exports = (defaultFuncs, api, ctx) => {
      */
     getSeqID = async () => {
         try {
+            // Check if account is already blocked
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Skipping getSeqID: Account blocked by Facebook.");
+                return;
+            }
+            
             utils.log("Fetching sequence ID...");
             
             form = {
@@ -510,11 +616,22 @@ module.exports = (defaultFuncs, api, ctx) => {
             }
 
             utils.log(`✅ Sequence ID retrieved: ${ctx.lastSeqId}`);
+            
+            // Reset failure count on success
+            accountBlockTracker.consecutiveFailures = 0;
 
             // Start MQTT listener
             listenMqtt(defaultFuncs, api, ctx, globalCallback);
             
         } catch (err) {
+            // Check if account is blocked by Facebook
+            const shouldStop = handleAccountBlockDetection(err, ctx);
+            
+            if (shouldStop) {
+                // Account blocked - stop all attempts
+                return;
+            }
+            
             const authError = new utils.AuthenticationError(
                 "Failed to get sequence ID. This is often caused by an invalid or expired appstate. " +
                 "Please try generating a new appstate.json file.",
@@ -527,6 +644,12 @@ module.exports = (defaultFuncs, api, ctx) => {
 
     ctx.reconnectMqtt = async () => {
         try {
+            // Check if account is blocked
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Skipping reconnect: Account blocked by Facebook.");
+                return;
+            }
+            
             utils.log("🔄 Reconnecting MQTT...");
             
             if (ctx.mqttClient) {

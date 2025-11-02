@@ -4,6 +4,73 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.3] - 2025-11-02
+
+### 🚨 Critical Fix - Account Block Detection System
+
+Added intelligent detection system that stops infinite reconnection loops when Facebook blocks an account.
+
+### Fixed
+
+- **Infinite Reconnection Loop When Account Blocked**: Bot now intelligently detects when Facebook has logged out the account
+  - Stops all reconnection attempts after 3 consecutive "Not logged in" errors
+  - Provides clear, actionable error message explaining what happened
+  - Prevents log spam from hundreds of failed reconnection attempts
+  - Cleans up all timers and connections properly when account is blocked
+
+### Added
+
+- **Smart Account Block Detection** (`listenMqtt.js`):
+  - New `isAccountBlocked()` function detects Facebook logout/block errors
+  - New `handleAccountBlockDetection()` manages block state and cleanup
+  - Tracks consecutive failures to distinguish temporary errors from permanent blocks
+  - After 3 consecutive "Not logged in" errors, displays helpful error message
+  - Automatically stops MQTT client, presence updates, and health checks
+  - Sets `ctx.loggedIn = false` to prevent further attempts
+
+- **Clear User Guidance When Blocked**:
+  ```
+  🚨 ACCOUNT BLOCKED BY FACEBOOK 🚨
+  Your Facebook account has been logged out by Facebook's security system.
+  
+  This happens when:
+    • Facebook detects automated/bot activity
+    • The account was logged in from a suspicious location
+    • Too many rapid actions were performed
+    • The appstate.json is expired or invalid
+  
+  TO FIX THIS:
+    1. Generate a NEW appstate.json from a fresh browser session
+    2. Use a DIFFERENT Facebook account (this one may be flagged)
+    3. Login to Facebook in a browser first to verify the account
+    4. Wait 24-48 hours before trying again with this account
+  ```
+
+### Changed
+
+- **getSeqID()**: Now checks block status before attempting to fetch sequence ID
+- **reconnectMqtt()**: Skips reconnection if account is blocked
+- **MQTT 'close' event**: Checks block status before scheduling reconnection
+- All reconnection logic now respects the account block state
+
+### Impact
+
+✅ **Stops infinite reconnection loops**
+✅ **Clear, actionable error messages**
+✅ **Cleaner logs when account is blocked**
+✅ **Proper cleanup of resources**
+✅ **Easier to diagnose and fix issues**
+
+### Important Notes
+
+**If you see the "ACCOUNT BLOCKED" message:**
+1. Your current appstate.json is NO LONGER VALID
+2. You MUST generate a new appstate.json from a fresh browser login
+3. Consider using a different Facebook account if this one is flagged
+4. The bot has stopped trying to reconnect to prevent further detection
+
+---
+
 ## [3.8.2] - 2025-11-02
 
 ### 🛡️ Critical Anti-Detection Improvements
