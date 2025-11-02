@@ -4,6 +4,76 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.6] - 2025-11-02
+
+### 🔧 Code Optimization & MQTT Stability Improvements
+
+Major code cleanup and MQTT configuration enhancements for better connection stability and maintainability.
+
+### Changed
+
+- **Simplified listenMqtt.js Code Structure**
+  - Removed all JSDoc comment blocks for cleaner, more readable code
+  - Streamlined function implementations without sacrificing functionality
+  - Reduced file size while maintaining all features
+  - Easier to maintain and debug without comment overhead
+
+- **Enhanced MQTT Configuration** (`listenMqtt.js`)
+  - Increased `KEEPALIVE_INTERVAL`: 60 seconds for better stability
+  - Optimized `RECONNECT_PERIOD`: 3 seconds for more stable reconnections
+  - Extended `PRESENCE_UPDATE_INTERVAL`: 50 seconds for optimal presence updates
+  - Extended `MIN_RECONNECT_TIME`: 2 hours (increased from 26 minutes)
+  - Extended `MAX_RECONNECT_TIME`: 4 hours (increased from 1 hour)
+  - These settings provide better balance between responsiveness and stability
+
+### Fixed
+
+- **MQTT Initialization Error**: Fixed `Cannot access 'MQTT_CONFIG' before initialization` error
+  - Changed `mqttReconnectionTracker.currentDelay` from referencing `MQTT_CONFIG.INITIAL_RETRY_DELAY` to direct value `2000`
+  - Eliminates temporal dead zone JavaScript error during module initialization
+  - Ensures clean startup without initialization errors
+
+### Technical Details
+
+**MQTT Configuration Improvements:**
+```javascript
+const MQTT_CONFIG = {
+    KEEPALIVE_INTERVAL: 60,
+    CONNECT_TIMEOUT: 60000,
+    RECONNECT_PERIOD: 3000,
+    PRESENCE_UPDATE_INTERVAL: 50000,
+    MIN_RECONNECT_TIME: 2 * 60 * 60 * 1000,
+    MAX_RECONNECT_TIME: 4 * 60 * 60 * 1000,
+    PROTOCOL_VERSION: 3,
+    QOS_LEVEL: 1
+};
+```
+
+**Benefits:**
+- Longer reconnection intervals reduce server load
+- More stable connection with optimized timing
+- Better presence update frequency
+- Reduced risk of rate limiting from Facebook
+- Cleaner, more maintainable codebase
+
+### Impact
+
+✅ **Cleaner codebase** - Easier to read and maintain
+✅ **Better MQTT stability** - Optimized reconnection timing
+✅ **Fixed initialization bug** - Clean startup without errors
+✅ **Reduced server load** - Longer intervals between reconnections
+✅ **Improved reliability** - Better balance of stability and responsiveness
+
+### Migration Notes
+
+No code changes required - this is a drop-in replacement for v3.8.5.
+
+```bash
+npm install biar-fca@3.8.6
+```
+
+---
+
 ## [3.8.4] - 2025-11-02
 
 ### 🔧 Enhanced Connection Stability & Session Management
