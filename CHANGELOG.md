@@ -4,6 +4,102 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.7] - 2025-11-02
+
+### 🔄 Major Update - Restored Full Features & Simplified Presence System
+
+Complete restoration of all advanced MQTT features with simplified online presence implementation.
+
+### Changed
+
+- **Restored Full-Featured listenMqtt.js** (Without Comments)
+  - Brought back all account block detection features from v3.8.4
+  - Restored exponential backoff reconnection system
+  - Re-enabled idle connection monitoring and health checks
+  - Restored session validation and failure tracking
+  - Maintained clean code structure without JSDoc comments
+  - All advanced protection features now active
+
+- **Simplified startOnlinePresence.js**
+  - Streamlined to basic Facebook activity simulation
+  - **Uses cookie jar from API context (multi-bot database compatible)**
+  - Works seamlessly with database-stored appstates
+  - Removed session validation overhead
+  - Simplified human activity patterns
+  - Randomized intervals for better anti-detection
+  - Mobile user agent for more realistic presence
+
+### Features Restored
+
+**Account Block Detection System:**
+- Detects "Not logged in" errors after 3 consecutive failures
+- Automatically stops reconnection attempts when blocked
+- Displays clear error messages with recovery instructions
+- Prevents infinite reconnection loops
+
+**MQTT Reconnection Intelligence:**
+- Exponential backoff: 2s → 30s max retry delay
+- Tracks reconnection attempts (max 10 before extended delay)
+- Smart delay calculation with 1.5x multiplier
+- Resets state on successful connection
+
+**Connection Health Monitoring:**
+- Idle detection every 2 minutes
+- Auto-reconnect after 8 minutes of inactivity
+- Connection testing with QoS 1 for reliability
+- Tracks message timestamps and counts
+
+**Enhanced Error Handling:**
+- Server unavailable detection and handling
+- Graceful offline/close event management
+- Proper cleanup of intervals and connections
+- User callback error safety wrapper
+
+### Technical Details
+
+**MQTT Configuration:**
+```javascript
+const MQTT_CONFIG = {
+    KEEPALIVE_INTERVAL: 60,
+    RECONNECT_PERIOD: 5000,
+    MAX_RECONNECT_ATTEMPTS: 10,
+    PRESENCE_UPDATE_INTERVAL: 180000,
+    IDLE_CHECK_INTERVAL: 120000,
+    MAX_IDLE_TIME: 8 * 60 * 1000,
+    MIN_RECONNECT_TIME: 4 * 60 * 60 * 1000,
+    MAX_RECONNECT_TIME: 8 * 60 * 60 * 1000,
+    INITIAL_RETRY_DELAY: 2000,
+    MAX_RETRY_DELAY: 30000,
+    RETRY_MULTIPLIER: 1.5
+};
+```
+
+**Presence Simulation:**
+- Random Facebook page visits (2-5 pages per cycle)
+- Variable delays: 3-10 seconds between actions
+- Activity cycles: 60-150 seconds
+- Online status updates: 5-10 minutes
+- 70% chance of swipe actions
+
+### Impact
+
+✅ **Full protection restored** - Account block detection active
+✅ **Smarter reconnections** - Exponential backoff prevents spam
+✅ **Health monitoring** - Idle detection and auto-recovery
+✅ **Simpler presence** - Lightweight activity simulation
+✅ **Clean codebase** - No comment overhead
+✅ **Better reliability** - All advanced features working
+
+### Migration Notes
+
+No code changes required - this is a feature restoration update.
+
+```bash
+npm install biar-fca@3.8.7
+```
+
+---
+
 ## [3.8.6] - 2025-11-02
 
 ### 🔧 Code Optimization & MQTT Stability Improvements

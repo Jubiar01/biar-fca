@@ -9,6 +9,13 @@ const { parseDelta } = require('./deltas/value');
 let form = {};
 let getSeqID;
 
+const accountBlockTracker = {
+    consecutiveFailures: 0,
+    lastFailureTime: 0,
+    isBlocked: false,
+    blockReason: null
+};
+
 const MQTT_TOPICS = [
     "/legacy_web", "/webrtc", "/rtc_multi", "/onevc", "/br_sr", "/sr_res",
     "/t_ms", "/thread_typing", "/orca_typing_notifications", "/notify_disconnect",
@@ -19,12 +26,18 @@ const MQTT_TOPICS = [
 const MQTT_CONFIG = {
     KEEPALIVE_INTERVAL: 60,
     CONNECT_TIMEOUT: 60000,
-    RECONNECT_PERIOD: 3000,
-    PRESENCE_UPDATE_INTERVAL: 50000,
-    MIN_RECONNECT_TIME: 2 * 60 * 60 * 1000,
-    MAX_RECONNECT_TIME: 4 * 60 * 60 * 1000,
+    RECONNECT_PERIOD: 5000,
+    MAX_RECONNECT_ATTEMPTS: 10,
+    PRESENCE_UPDATE_INTERVAL: 180000,
+    IDLE_CHECK_INTERVAL: 120000,
+    MAX_IDLE_TIME: 8 * 60 * 1000,
+    MIN_RECONNECT_TIME: 4 * 60 * 60 * 1000,
+    MAX_RECONNECT_TIME: 8 * 60 * 60 * 1000,
     PROTOCOL_VERSION: 3,
-    QOS_LEVEL: 1
+    QOS_LEVEL: 1,
+    INITIAL_RETRY_DELAY: 2000,
+    MAX_RETRY_DELAY: 30000,
+    RETRY_MULTIPLIER: 1.5
 };
 
 const SYNC_CONFIG = {
@@ -33,6 +46,97 @@ const SYNC_CONFIG = {
     BATCH_SIZE: 500,
     ENCODING: "JSON"
 };
+
+const mqttReconnectionTracker = {
+    attemptCount: 0,
+    lastAttemptTime: 0,
+    currentDelay: 2000,
+    isReconnecting: false
+};
+
+function getReconnectionDelay() {
+    const delay = Math.min(
+        mqttReconnectionTracker.currentDelay,
+        MQTT_CONFIG.MAX_RETRY_DELAY
+    );
+    mqttReconnectionTracker.currentDelay *= MQTT_CONFIG.RETRY_MULTIPLIER;
+    return delay;
+}
+
+function resetReconnectionState() {
+    mqttReconnectionTracker.attemptCount = 0;
+    mqttReconnectionTracker.currentDelay = MQTT_CONFIG.INITIAL_RETRY_DELAY;
+    mqttReconnectionTracker.isReconnecting = false;
+}
+
+function isAccountBlocked(error) {
+    const errorMsg = error?.message || '';
+    const errorDetail = error?.error || '';
+    const originalError = error?.details?.originalError?.error || '';
+    
+    return errorMsg.includes('Facebook blocked the login') ||
+           errorMsg.includes('Not logged in') ||
+           errorDetail === 'Not logged in.' ||
+           originalError === 'Not logged in.';
+}
+
+function handleAccountBlockDetection(error, ctx) {
+    if (isAccountBlocked(error)) {
+        accountBlockTracker.consecutiveFailures++;
+        accountBlockTracker.lastFailureTime = Date.now();
+        
+        if (accountBlockTracker.consecutiveFailures >= 3) {
+            accountBlockTracker.isBlocked = true;
+            accountBlockTracker.blockReason = 'Facebook has logged out this account';
+            
+            ctx.loggedIn = false;
+            
+            utils.error("\n" + "=".repeat(80));
+            utils.error("🚨 ACCOUNT BLOCKED BY FACEBOOK 🚨");
+            utils.error("=".repeat(80));
+            utils.error("Your Facebook account has been logged out by Facebook's security system.");
+            utils.error("");
+            utils.error("This happens when:");
+            utils.error("  • Facebook detects automated/bot activity");
+            utils.error("  • The account was logged in from a suspicious location");
+            utils.error("  • Too many rapid actions were performed");
+            utils.error("  • The appstate.json is expired or invalid");
+            utils.error("");
+            utils.error("TO FIX THIS:");
+            utils.error("  1. Generate a NEW appstate.json from a fresh browser session");
+            utils.error("  2. Use a DIFFERENT Facebook account (this one may be flagged)");
+            utils.error("  3. Login to Facebook in a browser first to verify the account");
+            utils.error("  4. Wait 24-48 hours before trying again with this account");
+            utils.error("");
+            utils.error("STOPPING all reconnection attempts to prevent spam...");
+            utils.error("=".repeat(80) + "\n");
+            
+            if (ctx.mqttClient) {
+                try {
+                    ctx.mqttClient.end(true);
+                    ctx.mqttClient = null;
+                } catch (e) {
+                }
+            }
+            
+            if (ctx.presenceInterval) {
+                clearInterval(ctx.presenceInterval);
+                ctx.presenceInterval = null;
+            }
+            
+            if (ctx.idleCheckInterval) {
+                clearInterval(ctx.idleCheckInterval);
+                ctx.idleCheckInterval = null;
+            }
+            
+            return true;
+        }
+    } else {
+        accountBlockTracker.consecutiveFailures = 0;
+    }
+    
+    return false;
+}
 
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -153,24 +257,69 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         ctx.mqttClient = mqttClient;
 
         mqttClient.on('error', (err) => {
+            const errorMsg = err.message || String(err);
+            
+            if (errorMsg.includes('Server unavailable') || errorMsg.includes('Connection refused')) {
+                mqttReconnectionTracker.attemptCount++;
+                utils.warn(`⚠️  MQTT server unavailable (attempt ${mqttReconnectionTracker.attemptCount}/${MQTT_CONFIG.MAX_RECONNECT_ATTEMPTS})`);
+                
+                if (mqttReconnectionTracker.attemptCount >= MQTT_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+                    utils.error("❌ Max MQTT reconnection attempts reached. Waiting longer before retry...");
+                    mqttReconnectionTracker.currentDelay = MQTT_CONFIG.MAX_RETRY_DELAY;
+                }
+            }
+            
             const networkError = new utils.NetworkError(
-                `MQTT connection error: ${err.message}`,
-                { originalError: err, host }
+                `MQTT connection error: ${errorMsg}`,
+                { originalError: err, host, attemptCount: mqttReconnectionTracker.attemptCount }
             );
             utils.error("listenMqtt", networkError);
+        });
+
+        mqttClient.on('offline', () => {
+            utils.warn("⚠️  MQTT client went offline. Will attempt reconnection...");
+            ctx.mqttConnected = false;
+        });
+
+        mqttClient.on('close', () => {
+            utils.warn("🔌 MQTT connection closed.");
+            ctx.mqttConnected = false;
             
-            try {
-                mqttClient.end();
-            } catch (endErr) {
-                utils.error("listenMqtt", "Error ending MQTT client:", endErr);
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Reconnection cancelled: Account blocked by Facebook.");
+                return;
             }
             
-            if (ctx.globalOptions.autoReconnect) {
-                utils.log("Attempting to reconnect...");
-                getSeqID();
+            if (ctx.loggedIn !== false && ctx.globalOptions && ctx.globalOptions.autoReconnect !== false) {
+                const reconnectDelay = getReconnectionDelay();
+                const delaySeconds = (reconnectDelay / 1000).toFixed(1);
+                
+                utils.log(`Will attempt reconnection in ${delaySeconds} seconds... (attempt ${mqttReconnectionTracker.attemptCount + 1})`);
+                mqttReconnectionTracker.isReconnecting = true;
+                
+                setTimeout(() => {
+                    if (accountBlockTracker.isBlocked) {
+                        utils.log("Reconnection cancelled: Account blocked by Facebook.");
+                        mqttReconnectionTracker.isReconnecting = false;
+                        return;
+                    }
+                    
+                    if (ctx.loggedIn !== false && (!ctx.mqttClient || !ctx.mqttClient.connected)) {
+                        utils.log("🔄 Triggering MQTT reconnection...");
+                        mqttReconnectionTracker.attemptCount++;
+                        getSeqID();
+                    } else {
+                        utils.log("Reconnection cancelled: Bot logged out or already connected.");
+                        mqttReconnectionTracker.isReconnecting = false;
+                    }
+                }, reconnectDelay);
             } else {
-                globalCallback(networkError);
+                utils.log("Reconnection disabled or bot logged out.");
             }
+        });
+
+        mqttClient.on('reconnect', () => {
+            utils.log("🔄 MQTT reconnecting...");
         });
 
         mqttClient.on('connect', async () => {
@@ -203,6 +352,9 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 }
 
                 utils.log("✅ Successfully connected to MQTT");
+                ctx.mqttConnected = true;
+                
+                resetReconnectionState();
 
                 try {
                     const { name: botName = "Facebook User", uid = ctx.userID } = 
@@ -227,6 +379,46 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         });
 
         let presenceInterval;
+        const idleCheckInterval = setInterval(() => {
+            if (!ctx.lastMessageTime) {
+                return;
+            }
+
+            const timeSinceLastMessage = Date.now() - ctx.lastMessageTime;
+            
+            if (timeSinceLastMessage > MQTT_CONFIG.MAX_IDLE_TIME) {
+                if (mqttClient && mqttClient.connected) {
+                    utils.warn(`⚠️  MQTT idle for ${Math.floor(timeSinceLastMessage / 1000)}s. Testing connection...`);
+                    
+                    try {
+                        const testPayload = utils.generatePresence(ctx.userID);
+                        mqttClient.publish(
+                            '/orca_presence',
+                            JSON.stringify({ "p": testPayload }),
+                            { qos: 1, retain: false },
+                            (err) => {
+                                if (err) {
+                                    utils.error("Connection test failed. Forcing reconnection...");
+                                    if (ctx.reconnectMqtt) {
+                                        ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
+                                    }
+                                } else {
+                                    utils.log("✅ Connection test passed. MQTT is responsive.");
+                                }
+                            }
+                        );
+                    } catch (testErr) {
+                        utils.error("Connection test error. Forcing reconnection...");
+                        if (ctx.reconnectMqtt) {
+                            ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
+                        }
+                    }
+                }
+            }
+        }, MQTT_CONFIG.IDLE_CHECK_INTERVAL);
+
+        ctx.idleCheckInterval = idleCheckInterval;
+        
         if (ctx.globalOptions.updatePresence) {
             presenceInterval = setInterval(() => {
                 if (!mqttClient || !mqttClient.connected) {
@@ -238,6 +430,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     mqttClient.publish(
                         '/orca_presence',
                         JSON.stringify({ "p": presencePayload }),
+                        { qos: 0, retain: false },
                         (err) => {
                             if (err) {
                                 utils.error("Failed to send presence update:", err);
@@ -252,8 +445,14 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
             ctx.presenceInterval = presenceInterval;
         }
 
+        ctx.lastMessageTime = Date.now();
+        ctx.messageCount = 0;
+
         mqttClient.on('message', async (topic, message, _packet) => {
             try {
+                ctx.lastMessageTime = Date.now();
+                ctx.messageCount++;
+
                 const jsonMessage = JSON.parse(message.toString());
                 
                 if (topic === "/t_ms") {
@@ -313,6 +512,11 @@ module.exports = (defaultFuncs, api, ctx) => {
 
     getSeqID = async () => {
         try {
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Skipping getSeqID: Account blocked by Facebook.");
+                return;
+            }
+            
             utils.log("Fetching sequence ID...");
             
             form = {
@@ -352,10 +556,18 @@ module.exports = (defaultFuncs, api, ctx) => {
             }
 
             utils.log(`✅ Sequence ID retrieved: ${ctx.lastSeqId}`);
+            
+            accountBlockTracker.consecutiveFailures = 0;
 
             listenMqtt(defaultFuncs, api, ctx, globalCallback);
             
         } catch (err) {
+            const shouldStop = handleAccountBlockDetection(err, ctx);
+            
+            if (shouldStop) {
+                return;
+            }
+            
             const authError = new utils.AuthenticationError(
                 "Failed to get sequence ID. This is often caused by an invalid or expired appstate. " +
                 "Please try generating a new appstate.json file.",
@@ -363,6 +575,32 @@ module.exports = (defaultFuncs, api, ctx) => {
             );
             utils.error("getSeqID error:", authError);
             return globalCallback(authError);
+        }
+    };
+
+    ctx.reconnectMqtt = async () => {
+        try {
+            if (accountBlockTracker.isBlocked) {
+                utils.log("Skipping reconnect: Account blocked by Facebook.");
+                return;
+            }
+            
+            utils.log("🔄 Reconnecting MQTT...");
+            
+            if (ctx.mqttClient) {
+                try {
+                    ctx.mqttClient.end(true);
+                } catch (endErr) {
+                    utils.error("Error ending MQTT client:", endErr);
+                }
+                ctx.mqttClient = null;
+            }
+            
+            ctx.clientID = generateUUID();
+            await getSeqID();
+        } catch (err) {
+            utils.error("Failed to reconnect MQTT:", err);
+            throw err;
         }
     };
 
@@ -381,6 +619,11 @@ module.exports = (defaultFuncs, api, ctx) => {
                 if (ctx.presenceInterval) {
                     clearInterval(ctx.presenceInterval);
                     ctx.presenceInterval = null;
+                }
+                
+                if (ctx.idleCheckInterval) {
+                    clearInterval(ctx.idleCheckInterval);
+                    ctx.idleCheckInterval = null;
                 }
                 
                 if (ctx.mqttClient) {
@@ -412,7 +655,17 @@ module.exports = (defaultFuncs, api, ctx) => {
         };
 
         if (typeof callback === 'function') {
-            globalCallback = callback;
+            const userCallback = callback;
+            globalCallback = (error, message) => {
+                try {
+                    userCallback(error, message);
+                } catch (callbackError) {
+                    utils.error("Error in user callback (message handler):", callbackError);
+                    if (!error) {
+                        msgEmitter.emit("error", callbackError);
+                    }
+                }
+            };
         }
 
         if (!ctx.firstListen || !ctx.lastSeqId) {
