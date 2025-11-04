@@ -103,7 +103,12 @@ module.exports = (defaultFuncs, api, ctx) => {
     const messageIDType = utils.getType(replyToMessage);
     if (msgType !== "String" && msgType !== "Object") throw new Error("Message should be of type string or object and not " + msgType + ".");
     if (threadIDType !== "Array" && threadIDType !== "Number" && threadIDType !== "String") throw new Error("ThreadID should be of type number, string, or array and not " + threadIDType + ".");
-    if (replyToMessage && messageIDType !== 'String') throw new Error("MessageID should be of type string and not " + messageIDType + ".");
+    
+    if (messageIDType === 'Function' || messageIDType === 'Undefined' || messageIDType === 'Null') {
+      replyToMessage = null;
+    } else if (replyToMessage && messageIDType !== 'String') {
+      throw new Error("MessageID should be of type string and not " + messageIDType + ".");
+    }
     if (msgType === "String") {
       msg = { body: msg };
     }

@@ -158,15 +158,15 @@ module.exports = (defaultFuncs, api, ctx) => {
           if (resData?.error && resData?.error !== 3252001) throw resData;
           const retObj = {};
           const profiles = resData?.payload?.profiles;
-          if (profiles) {
+          if (profiles && Object.keys(profiles).length > 0) {
             for (const prop in profiles) {
               if (profiles.hasOwnProperty(prop)) {
                 const inner = profiles[prop];
                 const nameParts = inner.name ? inner.name.split(' ') : [];
                 retObj[prop] = {
                   id: prop,
-                  name: inner.name,
-                  firstName: inner.firstName,
+                  name: inner.name || "Facebook User",
+                  firstName: inner.firstName || "Facebook",
                   lastName: nameParts.length > 1 ? nameParts[nameParts.length - 1] : null,
                   vanity: inner.vanity,
                   profilePicUrl: `https://graph.facebook.com/${prop}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`,
@@ -180,11 +180,14 @@ module.exports = (defaultFuncs, api, ctx) => {
                 };
               }
             }
-          } else {
-            for (const prop of ids) {
-              retObj[prop] = createDefaultUser(prop);
+          }
+          
+          for (const id of ids) {
+            if (!retObj[id]) {
+              retObj[id] = createDefaultUser(id);
             }
           }
+          
           return originalIdIsArray ? callback(null, Object.values(retObj)) : callback(null, retObj[ids[0]]);
         }).catch(err => {
           utils.error("getUserInfo (payload)", err);

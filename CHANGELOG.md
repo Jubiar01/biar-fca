@@ -4,6 +4,50 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.8.8] - 2025-11-04
+
+### 🐛 Critical Bug Fixes
+
+Fixed two critical errors affecting user information retrieval and message sending functionality.
+
+### Fixed
+
+- **getUserInfo Error**: Fixed "Cannot read properties of undefined (reading 'name')" error
+  - Root cause: When Facebook's API returned no profiles or empty profile data, the function tried to access properties on undefined objects
+  - Added comprehensive validation to check if profiles exist and have data before processing
+  - Added fallback default values for name ("Facebook User") and firstName ("Facebook") when data is missing
+  - Implemented loop to ensure all requested user IDs have entries by creating default user objects for missing profiles
+  - Guarantees return value is never undefined, preventing downstream errors
+
+- **sendMessage Error**: Fixed "MessageID should be of type string and not Function" error  
+  - Root cause: Function was receiving a Function type (callback) as the `replyToMessage` parameter instead of a string
+  - Added intelligent parameter type detection to handle flexible calling patterns
+  - Now properly handles Function, Undefined, and Null types by setting replyToMessage to null
+  - Maintains backward compatibility while being more forgiving of parameter variations
+  - Only throws error for invalid types that aren't Function/Undefined/Null/String
+
+### Changed
+
+- **getUserInfo.js**: Enhanced profile validation and error handling
+  - Checks if profiles object exists AND has keys before processing
+  - Ensures every requested user ID gets a valid user object (either real data or default)
+  - More resilient to Facebook API response variations
+
+- **sendMessage.js**: Improved parameter validation logic
+  - Smart type checking for replyToMessage parameter
+  - Gracefully handles common calling pattern mistakes
+  - Better error messages for truly invalid parameter types
+
+### Impact
+
+✅ **getUserInfo reliability** - No more crashes when profile data is unavailable
+✅ **sendMessage flexibility** - Handles parameter variations gracefully
+✅ **Backward compatibility** - Existing code continues to work
+✅ **Better error handling** - Clear error messages for debugging
+✅ **More robust API** - Resilient to edge cases and API variations
+
+---
+
 ## [3.8.7] - 2025-11-02
 
 ### 🔄 Major Update - Restored Full Features & Simplified Presence System
