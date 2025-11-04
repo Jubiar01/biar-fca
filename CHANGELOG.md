@@ -4,6 +4,53 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.9.1] - 2025-11-04
+
+### 🐛 Bug Fix - Enhanced Error Debugging & Graceful Failure Handling
+
+Improved error handling and added comprehensive debugging to identify error sources.
+
+### Fixed
+
+- **Enhanced Error Logging**: Added detailed logging to distinguish between HTTP and MQTT sendMessage calls
+  - HTTP sendMessage now logs as `[HTTP]`
+  - MQTT sendMessage now logs as `[MQTT]`
+  - Added message preview in debug logs for traceability
+  - Better error context with thread IDs in all error messages
+
+- **Graceful autoMarkDelivery Failures**: Bot no longer crashes when marking messages as delivered fails
+  - Added `.catch()` handlers to autoMarkDelivery calls
+  - Errors are logged as warnings instead of throwing exceptions
+  - Bot continues operating even if delivery receipts fail for old/invalid conversations
+
+- **Smarter markAsReadAll on Startup**: Now respects autoMarkRead option
+  - Only runs if `autoMarkRead` is enabled in options
+  - Prevents unnecessary errors on startup for old conversations
+  - Better error handling with message-only logging (not full error objects)
+
+### Changed
+
+- **sendMessage.js**: Added debug logging for all outgoing HTTP messages
+  - Logs thread ID and message preview before sending
+  - Helps trace where problematic sendMessage calls originate
+
+- **listenMqtt.js**: Conditional markAsReadAll on startup
+  - Checks `ctx.globalOptions.autoMarkRead` before running
+  - Better error message formatting
+
+- **deltas/value.js**: Non-blocking autoMarkDelivery
+  - Uses `.catch()` for graceful error handling
+  - Logs warnings instead of throwing for delivery receipt failures
+
+### Impact
+
+✅ **Better debugging** - Clear identification of error sources
+✅ **More resilient** - Bot doesn't crash on delivery receipt failures  
+✅ **Cleaner logs** - Warnings instead of errors for non-critical issues
+✅ **Less noise** - Only marks read on startup if configured
+
+---
+
 ## [3.9.0] - 2025-11-04
 
 ### 🐛 Critical Bug Fix - Bot Not Responding to Commands

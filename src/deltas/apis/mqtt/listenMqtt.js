@@ -674,12 +674,12 @@ module.exports = (defaultFuncs, api, ctx) => {
             listenMqtt(defaultFuncs, api, ctx, globalCallback);
         }
 
-        if (ctx.firstListen) {
+        if (ctx.firstListen && ctx.globalOptions.autoMarkRead) {
             try {
                 utils.log("Marking all messages as read on startup...");
                 await api.markAsReadAll();
             } catch (err) {
-                utils.warn("Failed to mark all messages as read on startup:", err);
+                utils.warn("Failed to mark all messages as read on startup:", err.message || err);
             }
         }
 

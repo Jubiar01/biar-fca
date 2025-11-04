@@ -202,13 +202,13 @@ module.exports = (defaultFuncs, api, ctx) => {
 
           if (err) {
             if (err.error === 1545012 || err.errorCode === 1545012) {
-              utils.warn("sendMessageMqtt", `Got error 1545012. Bot is not part of the conversation ${threadID}`);
+              utils.warn("sendMessageMqtt [MQTT]", `Got error 1545012. Bot is not part of the conversation ${threadID}`);
               callback(null, null);
               return;
             }
             
             if (err.transientError) {
-              utils.warn("sendMessageMqtt", `Transient error ${err.error || err.errorCode}: ${err.errorDescription || 'Temporary failure'}`);
+              utils.warn("sendMessageMqtt [MQTT]", `Transient error ${err.error || err.errorCode}: ${err.errorDescription || 'Temporary failure'} (thread: ${threadID})`);
               callback(null, null);
               return;
             }

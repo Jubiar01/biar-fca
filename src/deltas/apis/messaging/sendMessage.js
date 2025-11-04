@@ -87,11 +87,11 @@ module.exports = (defaultFuncs, api, ctx) => {
     }
     if (resData.error) {
       if (resData.error === 1545012) {
-        utils.warn("sendMessage", "Got error 1545012. This might mean that you're not part of the conversation " + threadID);
+        utils.warn("sendMessage [HTTP]", `Got error 1545012. Bot is not part of the conversation ${threadID}`);
         return null;
       }
       if (resData.transientError) {
-        utils.warn("sendMessage", `Transient error ${resData.error}: ${resData.errorDescription || 'Temporary failure'}`);
+        utils.warn("sendMessage [HTTP]", `Transient error ${resData.error}: ${resData.errorDescription || 'Temporary failure'} (thread: ${threadID})`);
         return null;
       }
       throw new Error(`Send message failed with error code ${resData.error}: ${JSON.stringify(resData)}`);
@@ -114,6 +114,13 @@ module.exports = (defaultFuncs, api, ctx) => {
     } else if (replyToMessage && messageIDType !== 'String') {
       throw new Error("MessageID should be of type string and not " + messageIDType + ".");
     }
+
+    const debugInfo = {
+      msgPreview: typeof msg === 'string' ? msg.substring(0, 50) : (msg.body || '').substring(0, 50),
+      threadID,
+      method: 'HTTP'
+    };
+    utils.log("sendMessage [HTTP]", `Sending to thread ${threadID}: "${debugInfo.msgPreview}..."`);
     if (msgType === "String") {
       msg = { body: msg };
     }

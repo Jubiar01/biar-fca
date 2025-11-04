@@ -28,7 +28,11 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
             }
             ctx.threadTypeCache[fmtMsg.threadID] = fmtMsg.isGroup || false;
             
-            if (ctx.globalOptions.autoMarkDelivery) api.markAsDelivered(fmtMsg.threadID, fmtMsg.messageID);
+            if (ctx.globalOptions.autoMarkDelivery) {
+              api.markAsDelivered(fmtMsg.threadID, fmtMsg.messageID).catch(err => {
+                utils.warn("markAsDelivered", `Failed for thread ${fmtMsg.threadID}: ${err.message || err}`);
+              });
+            }
         }
 
         if (!ctx.globalOptions.selfListen && fmtMsg.senderID === ctx.userID) {
@@ -135,7 +139,11 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
               participantIDs: (delta.deltaMessageReply.repliedToMessage.participants || []).map(e => e.toString())
             };
           }
-          if (ctx.globalOptions.autoMarkDelivery) api.markAsDelivered(callbackToReturn.threadID, callbackToReturn.messageID);
+          if (ctx.globalOptions.autoMarkDelivery) {
+            api.markAsDelivered(callbackToReturn.threadID, callbackToReturn.messageID).catch(err => {
+              utils.warn("markAsDelivered", `Failed for thread ${callbackToReturn.threadID}: ${err.message || err}`);
+            });
+          }
           if (!ctx.globalOptions.selfListen && callbackToReturn.senderID === ctx.userID) return;
           return globalCallback(null, callbackToReturn);
         }
