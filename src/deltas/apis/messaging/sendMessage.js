@@ -88,6 +88,11 @@ module.exports = (defaultFuncs, api, ctx) => {
     if (resData.error) {
       if (resData.error === 1545012) {
         utils.warn("sendMessage", "Got error 1545012. This might mean that you're not part of the conversation " + threadID);
+        return null;
+      }
+      if (resData.transientError) {
+        utils.warn("sendMessage", `Transient error ${resData.error}: ${resData.errorDescription || 'Temporary failure'}`);
+        return null;
       }
       throw new Error(`Send message failed with error code ${resData.error}: ${JSON.stringify(resData)}`);
     }

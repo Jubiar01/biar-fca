@@ -109,6 +109,12 @@ module.exports = (defaultFuncs, api, ctx) => {
         resolveFunc(data);
       };
     }
+
+    if (!ctx.mqttClient || !ctx.mqttClient.connected) {
+      const error = new Error("MQTT client is not connected. Cannot send message.");
+      callback(error);
+      return returnPromise;
+    }
     
     const timestamp = Date.now();
     const otid = utils.generateOfflineThreadingID();
@@ -167,7 +173,8 @@ module.exports = (defaultFuncs, api, ctx) => {
         form.payload.tasks[0].payload.attachment_fbids = files.map(file => Object.values(file)[0]);
       } catch (err) {
         utils.error("Attachment upload failed:", err);
-        throw new Error(err);
+        callback(err);
+        return returnPromise;
       }
     }
 
@@ -175,14 +182,79 @@ module.exports = (defaultFuncs, api, ctx) => {
       task.payload = JSON.stringify(task.payload);
     });
     form.payload = JSON.stringify(form.payload);
-    await ctx.mqttClient.publish("/ls_req", JSON.stringify(form), {
+
+    const messageID = `mid.${otid}`;
+    const responseTimeout = setTimeout(() => {
+      if (ctx.reqCallbacks && ctx.reqCallbacks[messageID]) {
+        delete ctx.reqCallbacks[messageID];
+      }
+    }, 10000);
+
+    try {
+      if (!ctx.reqCallbacks) {
+        ctx.reqCallbacks = {};
+      }
+
+      ctx.reqCallbacks[messageID] = {
+        callback: (err, result) => {
+          clearTimeout(responseTimeout);
+          delete ctx.reqCallbacks[messageID];
+
+          if (err) {
+            if (err.error === 1545012 || err.errorCode === 1545012) {
+              utils.warn("sendMessageMqtt", `Got error 1545012. Bot is not part of the conversation ${threadID}`);
+              callback(null, null);
+              return;
+            }
+            
+            if (err.transientError) {
+              utils.warn("sendMessageMqtt", `Transient error ${err.error || err.errorCode}: ${err.errorDescription || 'Temporary failure'}`);
+              callback(null, null);
+              return;
+            }
+
+            callback(err);
+            return;
+          }
+
+          callback(null, {
+            threadID: threadID.toString(),
+            messageID,
+            timestamp,
+            type: replyToMessage ? "message_reply" : "message"
+          });
+        },
+        timestamp: Date.now(),
+        threadID: threadID.toString()
+      };
+
+      await ctx.mqttClient.publish("/ls_req", JSON.stringify(form), {
         qos: 1,
         retain: false
-    });
-    callback(null, {
-        threadID,
-        type: replyToMessage ? "message_reply" : "message"
-    });
+      });
+
+      setTimeout(() => {
+        if (ctx.reqCallbacks && ctx.reqCallbacks[messageID]) {
+          callback(null, {
+            threadID: threadID.toString(),
+            messageID,
+            timestamp,
+            type: replyToMessage ? "message_reply" : "message"
+          });
+          clearTimeout(responseTimeout);
+          delete ctx.reqCallbacks[messageID];
+        }
+      }, 1000);
+
+    } catch (err) {
+      clearTimeout(responseTimeout);
+      if (ctx.reqCallbacks && ctx.reqCallbacks[messageID]) {
+        delete ctx.reqCallbacks[messageID];
+      }
+      utils.error("sendMessageMqtt", "Failed to send message:", err);
+      callback(err);
+    }
+
     return returnPromise;
   };
 };
