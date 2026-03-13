@@ -4,12 +4,46 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
+## [3.9.4] - 2026-03-13
+
+### 🛡️ Advanced Anti-Detection & MQTT Reliability
+
+Major security enhancement focusing on human-like behavior patterns and more robust MQTT connection handling.
+
+### Fixed
+
+- **Enhanced Block Detection**: Expanded error pattern matching to detect and handle "Checkpoints", "Security Checks", and "Account Disables" automatically.
+- **MQTT Sync API Stability**: Updated Sync API version to 11 for better compatibility with current Facebook/Messenger protocols.
+- **MQTT Reconnection Jitter**: Added random jitter to all reconnection attempts to prevent detectable timing patterns.
+- **Idle Timeout Handling**: Improved idle connection detector to proactively test and recover dead connections with randomized intervals.
+
+### Changed
+
+- **Human-like `markAsRead` logic**: Messages are now marked as read after a simulated reading delay (based on message length) instead of instantaneously.
+- **Realistic MQTT Fingerprinting**:
+  - Updated MQTT username payload with version info (`vi`) and locale (`lc`).
+  - Added realistic `device_params` to MQTT sync queue mimicking modern iOS hardware (iPhone 15,3).
+- **Randomized Timing Patterns**:
+  - Keepalive interval now includes jitter (60-90 seconds).
+  - Presence updates and idle checks now use randomized intervals to avoid detection.
+- **Improved Anti-Detection Utilities**:
+  - Implemented functional `calculateReadingTime` and `calculateTypingTime` based on real human averages.
+  - Expanded `userAgents` list with modern Chrome and Macintosh browser signatures.
+  - Enhanced `RateLimiter` with proactive delay suggestions.
+
+### Impact
+
+✅ **Significantly reduced detection risk** - Bot behavior is now much harder to distinguish from real human activity.
+✅ **Robust connection handling** - Proactive health checks and jittered reconnections prevent account flags.
+✅ **Up-to-date protocol** - Uses latest Sync API version and modern device signatures.
+
+---
+
 ## [3.9.1] - 2025-11-04
 
 ### 🐛 Bug Fix - Enhanced Error Debugging & Graceful Failure Handling
 
 Improved error handling and added comprehensive debugging to identify error sources.
-
 ### Fixed
 
 - **Enhanced Error Logging**: Added detailed logging to distinguish between HTTP and MQTT sendMessage calls

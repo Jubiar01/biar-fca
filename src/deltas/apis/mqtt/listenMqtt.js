@@ -20,28 +20,32 @@ const MQTT_TOPICS = [
     "/legacy_web", "/webrtc", "/rtc_multi", "/onevc", "/br_sr", "/sr_res",
     "/t_ms", "/thread_typing", "/orca_typing_notifications", "/notify_disconnect",
     "/orca_presence", "/inbox", "/mercury", "/messaging_events",
-    "/orca_message_notifications", "/pp", "/webrtc_response"
+    "/orca_message_notifications", "/pp", "/webrtc_response",
+    "/ls_req", "/ls_resp" // Added Layer Sync topics
 ];
 
+// Added jitter helper
+const getJitter = (range) => Math.floor(Math.random() * (range * 2 + 1)) - range;
+
 const MQTT_CONFIG = {
-    KEEPALIVE_INTERVAL: 60,
+    get KEEPALIVE_INTERVAL() { return 60 + Math.floor(Math.random() * 30); },
     CONNECT_TIMEOUT: 60000,
-    RECONNECT_PERIOD: 5000,
-    MAX_RECONNECT_ATTEMPTS: 10,
-    PRESENCE_UPDATE_INTERVAL: 180000,
-    IDLE_CHECK_INTERVAL: 120000,
+    get RECONNECT_PERIOD() { return 5000 + Math.floor(Math.random() * 2000); },
+    MAX_RECONNECT_ATTEMPTS: 15,
+    get PRESENCE_UPDATE_INTERVAL() { return 180000 + getJitter(30000); },
+    get IDLE_CHECK_INTERVAL() { return 120000 + getJitter(20000); },
     MAX_IDLE_TIME: 8 * 60 * 1000,
     MIN_RECONNECT_TIME: 4 * 60 * 60 * 1000,
     MAX_RECONNECT_TIME: 8 * 60 * 60 * 1000,
     PROTOCOL_VERSION: 3,
     QOS_LEVEL: 1,
     INITIAL_RETRY_DELAY: 2000,
-    MAX_RETRY_DELAY: 30000,
+    MAX_RETRY_DELAY: 60000,
     RETRY_MULTIPLIER: 1.5
 };
 
 const SYNC_CONFIG = {
-    API_VERSION: 10,
+    API_VERSION: 11, // Updated version
     MAX_DELTAS: 1000,
     BATCH_SIZE: 500,
     ENCODING: "JSON"
@@ -56,7 +60,7 @@ const mqttReconnectionTracker = {
 
 function getReconnectionDelay() {
     const delay = Math.min(
-        mqttReconnectionTracker.currentDelay,
+        mqttReconnectionTracker.currentDelay + getJitter(500),
         MQTT_CONFIG.MAX_RETRY_DELAY
     );
     mqttReconnectionTracker.currentDelay *= MQTT_CONFIG.RETRY_MULTIPLIER;
@@ -70,14 +74,17 @@ function resetReconnectionState() {
 }
 
 function isAccountBlocked(error) {
-    const errorMsg = error?.message || '';
-    const errorDetail = error?.error || '';
-    const originalError = error?.details?.originalError?.error || '';
+    const errorMsg = String(error?.message || '').toLowerCase();
+    const errorDetail = String(error?.error || '').toLowerCase();
+    const originalError = String(error?.details?.originalError?.error || '').toLowerCase();
     
-    return errorMsg.includes('Facebook blocked the login') ||
-           errorMsg.includes('Not logged in') ||
-           errorDetail === 'Not logged in.' ||
-           originalError === 'Not logged in.';
+    return errorMsg.includes('facebook blocked the login') ||
+           errorMsg.includes('not logged in') ||
+           errorMsg.includes('account disabled') ||
+           errorMsg.includes('security check') ||
+           errorMsg.includes('checkpoint') ||
+           errorDetail === 'not logged in.' ||
+           originalError === 'not logged in.';
 }
 
 function handleAccountBlockDetection(error, ctx) {
@@ -87,28 +94,22 @@ function handleAccountBlockDetection(error, ctx) {
         
         if (accountBlockTracker.consecutiveFailures >= 3) {
             accountBlockTracker.isBlocked = true;
-            accountBlockTracker.blockReason = 'Facebook has logged out this account';
+            accountBlockTracker.blockReason = 'Facebook has flagged or logged out this account';
             
             ctx.loggedIn = false;
             
             utils.error("\n" + "=".repeat(80));
-            utils.error("🚨 ACCOUNT BLOCKED BY FACEBOOK 🚨");
+            utils.error("🚨 ACCOUNT SECURITY ALERT / BLOCKED 🚨");
             utils.error("=".repeat(80));
-            utils.error("Your Facebook account has been logged out by Facebook's security system.");
+            utils.error("Your Facebook account has been flagged or logged out.");
             utils.error("");
-            utils.error("This happens when:");
-            utils.error("  • Facebook detects automated/bot activity");
-            utils.error("  • The account was logged in from a suspicious location");
-            utils.error("  • Too many rapid actions were performed");
-            utils.error("  • The appstate.json is expired or invalid");
+            utils.error("Possible reasons:");
+            utils.error("  • Automated activity detected");
+            utils.error("  • Suspicious login location");
+            utils.error("  • Rate limits exceeded");
+            utils.error("  • Appstate/Cookies expired");
             utils.error("");
-            utils.error("TO FIX THIS:");
-            utils.error("  1. Generate a NEW appstate.json from a fresh browser session");
-            utils.error("  2. Use a DIFFERENT Facebook account (this one may be flagged)");
-            utils.error("  3. Login to Facebook in a browser first to verify the account");
-            utils.error("  4. Wait 24-48 hours before trying again with this account");
-            utils.error("");
-            utils.error("STOPPING all reconnection attempts to prevent spam...");
+            utils.error("STOPPING all reconnection attempts to protect the account.");
             utils.error("=".repeat(80) + "\n");
             
             if (ctx.mqttClient) {
@@ -116,7 +117,7 @@ function handleAccountBlockDetection(error, ctx) {
                     ctx.mqttClient.end(true);
                     ctx.mqttClient = null;
                 } catch (e) {
-                    // Ignore disconnection errors during cleanup
+                    // Ignore
                 }
             }
             
@@ -152,14 +153,14 @@ function getRandomReconnectTime() {
     return Math.floor(Math.random() * (range + 1)) + MQTT_CONFIG.MIN_RECONNECT_TIME;
 }
 
-function _calculateTimestamp(previousTimestamp, currentTimestamp) {
-    return Math.floor(previousTimestamp + (currentTimestamp - previousTimestamp) + 300);
-}
-
-function markAsRead(ctx, api, threadID) {
+async function markAsRead(ctx, api, threadID, receivedMessageText) {
     if (!ctx.globalOptions.autoMarkRead || !threadID) {
         return;
     }
+
+    // Anti-detection: Simulate human reading time
+    const readingDelay = utils.calculateReadingTime(receivedMessageText);
+    await new Promise(resolve => setTimeout(resolve, readingDelay));
     
     api.markAsRead(threadID, (err) => {
         if (err) {
@@ -169,14 +170,14 @@ function markAsRead(ctx, api, threadID) {
 }
 
 function buildMqttUsername(ctx, sessionID) {
-    return {
+    const username = {
         u: ctx.userID,
         s: sessionID,
         chat_on: ctx.globalOptions.online,
         fg: false,
         d: ctx.clientID,
         ct: 'websocket',
-        aid: ctx.mqttAppID,
+        aid: ctx.mqttAppID || '218474845183941',
         mqtt_sid: '',
         cp: 3,
         ecp: 10,
@@ -186,8 +187,11 @@ function buildMqttUsername(ctx, sessionID) {
         no_auto_fg: true,
         gas: null,
         pack: [],
-        a: ctx.globalOptions.userAgent
+        a: ctx.globalOptions.userAgent,
+        vi: '3', // Version Info
+        lc: 'en_US'
     };
+    return username;
 }
 
 function buildMqttOptions(ctx, host, username) {
@@ -229,7 +233,6 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         const sessionID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER) + 1;
         
         const domain = "wss://edge-chat.messenger.com/chat";
-        // Always use standard connection string without forcing region
         const host = `${domain}?sid=${sessionID}&cid=${ctx.clientID}`;
 
         utils.log("Connecting to MQTT...", host);
@@ -337,7 +340,12 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     max_deltas_able_to_process: SYNC_CONFIG.MAX_DELTAS,
                     delta_batch_size: SYNC_CONFIG.BATCH_SIZE,
                     encoding: SYNC_CONFIG.ENCODING,
-                    entity_fbid: ctx.userID
+                    entity_fbid: ctx.userID,
+                    device_params: {
+                        "app_version": "444.0.0.35.118",
+                        "os_version": "14",
+                        "device_model": "iPhone15,3"
+                    }
                 };
 
                 let syncTopic;
@@ -348,7 +356,6 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 } else {
                     syncTopic = "/messenger_sync_create_queue";
                     queue.initial_titan_sequence_id = ctx.lastSeqId;
-                    queue.device_params = null;
                 }
 
                 utils.log("✅ Successfully connected to MQTT");
@@ -357,11 +364,12 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                 resetReconnectionState();
 
                 try {
-                    const { name: botName = "Facebook User", uid = ctx.userID } = 
-                        await api.getBotInitialData();
-                    utils.log(`👤 Logged in as: ${botName} (${uid})`);
+                    const botData = await api.getBotInitialData();
+                    if (botData) {
+                        utils.log(`👤 Logged in as: ${botData.name || "Facebook User"} (${botData.uid || ctx.userID})`);
+                    }
                 } catch (botInfoErr) {
-                    utils.warn("Could not retrieve bot info:", botInfoErr.message);
+                    // Ignore bot info errors
                 }
 
                 await mqttClient.publish(
@@ -378,7 +386,6 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
             }
         });
 
-        let presenceInterval;
         const idleCheckInterval = setInterval(() => {
             if (!ctx.lastMessageTime) {
                 return;
@@ -397,21 +404,16 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                             JSON.stringify({ "p": testPayload }),
                             { qos: 1, retain: false },
                             (err) => {
-                                if (err) {
+                                if (err && ctx.reconnectMqtt) {
                                     utils.error("Connection test failed. Forcing reconnection...");
-                                    if (ctx.reconnectMqtt) {
-                                        ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
-                                    }
+                                    ctx.reconnectMqtt().catch(() => {});
                                 } else {
                                     utils.log("✅ Connection test passed. MQTT is responsive.");
                                 }
                             }
                         );
                     } catch (testErr) {
-                        utils.error("Connection test error. Forcing reconnection...");
-                        if (ctx.reconnectMqtt) {
-                            ctx.reconnectMqtt().catch(e => utils.error("Reconnect failed:", e));
-                        }
+                        if (ctx.reconnectMqtt) ctx.reconnectMqtt().catch(() => {});
                     }
                 }
             }
@@ -420,7 +422,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         ctx.idleCheckInterval = idleCheckInterval;
         
         if (ctx.globalOptions.updatePresence) {
-            presenceInterval = setInterval(() => {
+            const presenceInterval = setInterval(() => {
                 if (!mqttClient || !mqttClient.connected) {
                     return;
                 }
@@ -430,15 +432,10 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     mqttClient.publish(
                         '/orca_presence',
                         JSON.stringify({ "p": presencePayload }),
-                        { qos: 0, retain: false },
-                        (err) => {
-                            if (err) {
-                                utils.error("Failed to send presence update:", err);
-                            }
-                        }
+                        { qos: 0, retain: false }
                     );
                 } catch (presenceErr) {
-                    utils.error("Error generating presence update:", presenceErr);
+                    // Ignore presence errors
                 }
             }, MQTT_CONFIG.PRESENCE_UPDATE_INTERVAL);
 
@@ -451,35 +448,18 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         mqttClient.on('message', async (topic, message, _packet) => {
             try {
                 const msgString = message.toString();
-                utils.log(`[DEBUG-MQTT] Event fired! Topic: ${topic} | Payload size: ${msgString.length}`);
-                
                 ctx.lastMessageTime = Date.now();
                 ctx.messageCount++;
 
                 const jsonMessage = JSON.parse(msgString);
-                
-                // Log the full payload for inspection
-                utils.log(`[DEBUG-MQTT] Payload: ${JSON.stringify(jsonMessage, null, 2)}`);
-                
-                if (topic === "/t_ms") {
-                     // Log deltas summary
-                     if (jsonMessage.deltas) {
-                         utils.log(`[DEBUG-MQTT] Received ${jsonMessage.deltas.length} deltas`);
-                         jsonMessage.deltas.forEach((d, i) => {
-                             utils.log(`[DEBUG-MQTT] Delta ${i}: class=${d.class}, type=${d.type}`);
-                         });
-                     }
-                }
                 
                 if (topic === "/t_ms") {
                     if (jsonMessage.lastIssuedSeqId) {
                         ctx.lastSeqId = parseInt(jsonMessage.lastIssuedSeqId, 10);
                     }
                     
-                    // Critical fix: Update syncToken to receive new messages
                     if (jsonMessage.syncToken) {
                         ctx.syncToken = jsonMessage.syncToken;
-                        ctx.lastSeqId = jsonMessage.firstDeltaSeqId; // Also update seqID from this packet if present
                     }
 
                     if (jsonMessage.deltas && Array.isArray(jsonMessage.deltas)) {
@@ -497,7 +477,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                             try {
                                 parseDelta(defaultFuncs, api, ctx, globalCallback, { delta });
                             } catch (deltaErr) {
-                                utils.error("Error parsing delta from " + topic + ":", deltaErr);
+                                // Ignore delta errors
                             }
                         }
                     }
@@ -514,7 +494,7 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
                     globalCallback(null, typingEvent);
                 }
             } catch (parseErr) {
-                utils.error(`Error processing message from topic ${topic}:`, parseErr);
+                // Ignore parse errors
             }
         });
 
@@ -577,7 +557,6 @@ module.exports = (defaultFuncs, api, ctx) => {
                 throw new utils.ValidationError("Sequence ID not found in response");
             }
 
-            // Force fresh sync if sequence ID is suspiciously low (invalid stub)
             if (ctx.lastSeqId < 100) {
                 utils.warn("getSeqID", `Received low sequence ID (${ctx.lastSeqId}). Resetting to force fresh sync.`);
                 ctx.lastSeqId = null;
@@ -597,8 +576,7 @@ module.exports = (defaultFuncs, api, ctx) => {
             }
             
             const authError = new utils.AuthenticationError(
-                "Failed to get sequence ID. This is often caused by an invalid or expired appstate. " +
-                "Please try generating a new appstate.json file.",
+                "Failed to get sequence ID. Please try generating a new appstate.json.",
                 { originalError: err }
             );
             utils.error("getSeqID error:", authError);
@@ -619,7 +597,7 @@ module.exports = (defaultFuncs, api, ctx) => {
                 try {
                     ctx.mqttClient.end(true);
                 } catch (endErr) {
-                    utils.error("Error ending MQTT client:", endErr);
+                    // Ignore
                 }
                 ctx.mqttClient = null;
             }
@@ -659,7 +637,7 @@ module.exports = (defaultFuncs, api, ctx) => {
                         ctx.mqttClient.end();
                         ctx.mqttClient = undefined;
                     } catch (err) {
-                        utils.error("Error stopping MQTT client:", err);
+                        // Ignore
                     }
                 }
                 
@@ -676,7 +654,7 @@ module.exports = (defaultFuncs, api, ctx) => {
             }
             
             if (message && (message.type === "message" || message.type === "message_reply")) {
-                markAsRead(ctx, api, message.threadID);
+                markAsRead(ctx, api, message.threadID, message.body);
             }
             
             msgEmitter.emit("message", message);
@@ -684,11 +662,14 @@ module.exports = (defaultFuncs, api, ctx) => {
 
         if (typeof callback === 'function') {
             const userCallback = callback;
-            globalCallback = (error, message) => {
+            globalCallback = async (error, message) => {
                 try {
+                    if (message && (message.type === "message" || message.type === "message_reply")) {
+                        await markAsRead(ctx, api, message.threadID, message.body);
+                    }
                     userCallback(error, message);
                 } catch (callbackError) {
-                    utils.error("Error in user callback (message handler):", callbackError);
+                    utils.error("Error in user callback:", callbackError);
                     if (!error) {
                         msgEmitter.emit("error", callbackError);
                     }
@@ -707,7 +688,7 @@ module.exports = (defaultFuncs, api, ctx) => {
                 utils.log("Marking all messages as read on startup...");
                 await api.markAsReadAll();
             } catch (err) {
-                utils.warn("Failed to mark all messages as read on startup:", err.message || err);
+                // Ignore
             }
         }
 
@@ -715,19 +696,14 @@ module.exports = (defaultFuncs, api, ctx) => {
 
         async function scheduleReconnect() {
             const time = getRandomReconnectTime();
-            const hours = Math.floor(time / 3600000);
-            const minutes = Math.floor((time % 3600000) / 60000);
-            const timeStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes} minutes`;
-            utils.log(`🔄 Scheduled reconnect in ${timeStr} (${time}ms)`);
-            
             reconnectInterval = setTimeout(() => {
-                utils.log("⏰ Reconnecting MQTT with new clientID...");
+                utils.log("⏰ Periodic reconnection...");
                 
                 if (ctx.mqttClient) {
                     try {
                         ctx.mqttClient.end(true);
                     } catch (err) {
-                        utils.error("Error ending existing connection:", err);
+                        // Ignore
                     }
                 }
                 

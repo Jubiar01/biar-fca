@@ -6,7 +6,7 @@ const headers = require("./headers");
 const clients = require("./clients");
 const constants = require("./constants");
 const formatters = require("./formatters"); 
-const userAgents = require("./user-agents");
+const antiDetection = require("./antiDetection");
 const errors = require("./errors");
 const cheerio = require("cheerio");
 const util = require("util");
@@ -144,6 +144,7 @@ module.exports = {
   ...clients,
   ...constants,
   ...formatters,
+  ...antiDetection,
   ...userAgents,
   ...errors,
   json,
