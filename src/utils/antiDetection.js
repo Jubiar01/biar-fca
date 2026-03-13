@@ -11,92 +11,50 @@
  * @param {number} max - Maximum delay in ms
  * @returns {Promise} Resolves after delay
  */
-function randomDelay(min = 500, max = 2000) {
+function randomDelay(min = 50, max = 200) {
     const delay = Math.floor(Math.random() * (max - min + 1)) + min;
     return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 /**
  * Simulate typing for a realistic duration based on message length
- * @param {string} message - The message to be sent
+ * @param {string} _message - The message to be sent
  * @returns {number} Delay in milliseconds
  */
-function calculateTypingTime(message) {
-    // Average human typing speed: 40-60 words per minute (200-300 chars/min)
-    // We'll use 250 chars/min = ~240ms per character
-    const baseTime = message.length * 240;
-    
-    // Add randomness (±30%)
-    const variance = baseTime * 0.3;
-    const typingTime = baseTime + (Math.random() * variance * 2 - variance);
-    
-    // Min 800ms, max 10 seconds
-    return Math.max(800, Math.min(10000, typingTime));
+function calculateTypingTime(_message) {
+    return 0; // Disabled for responsiveness
 }
 
 /**
  * Simulate human reading time before responding
- * @param {string} receivedMessage - The message received
+ * @param {string} _receivedMessage - The message received
  * @returns {number} Delay in milliseconds
  */
-function calculateReadingTime(receivedMessage) {
-    // Average reading speed: 200-250 words per minute (~1000 chars/min)
-    // We'll use 1200 chars/min = ~50ms per character
-    const baseTime = receivedMessage.length * 50;
-    
-    // Add randomness (±40%)
-    const variance = baseTime * 0.4;
-    const readingTime = baseTime + (Math.random() * variance * 2 - variance);
-    
-    // Min 500ms, max 5 seconds
-    return Math.max(500, Math.min(5000, readingTime));
+function calculateReadingTime(_receivedMessage) {
+    return 0; // Disabled for responsiveness
 }
 
 /**
- * Rate limiter to prevent spam detection
+ * Rate limiter - Passive mode (logging only)
  */
 class RateLimiter {
     constructor() {
         this.messageCount = 0;
-        this.startTime = Date.now();
-        this.maxMessagesPerMinute = 10; // Conservative limit
-        this.maxMessagesPerHour = 100;
-        this.hourlyMessages = [];
     }
     
     /**
-     * Check if we can send a message without triggering spam detection
+     * Check if we can send a message
      * @returns {boolean}
      */
     canSendMessage() {
-        const now = Date.now();
-        const oneMinuteAgo = now - 60000;
-        const oneHourAgo = now - 3600000;
-        
-        // Clean up old messages from hourly tracker
-        this.hourlyMessages = this.hourlyMessages.filter(time => time > oneHourAgo);
-        
-        // Check per-minute limit
-        const recentMessages = this.hourlyMessages.filter(time => time > oneMinuteAgo);
-        if (recentMessages.length >= this.maxMessagesPerMinute) {
-            console.log("⚠️  Rate limit: Too many messages in the last minute");
-            return false;
-        }
-        
-        // Check hourly limit
-        if (this.hourlyMessages.length >= this.maxMessagesPerHour) {
-            console.log("⚠️  Rate limit: Too many messages in the last hour");
-            return false;
-        }
-        
-        return true;
+        return true; // Always allow
     }
     
     /**
      * Record a message being sent
      */
     recordMessage() {
-        this.hourlyMessages.push(Date.now());
+        this.messageCount++;
     }
     
     /**
@@ -104,14 +62,7 @@ class RateLimiter {
      * @returns {number} Delay in ms
      */
     getSuggestedDelay() {
-        const recentCount = this.hourlyMessages.filter(
-            time => time > Date.now() - 60000
-        ).length;
-        
-        if (recentCount > 7) return 8000;  // Heavy usage: wait 8s
-        if (recentCount > 5) return 5000;  // Moderate: wait 5s
-        if (recentCount > 3) return 3000;  // Light: wait 3s
-        return 1500; // Normal: wait 1.5s
+        return 0;
     }
 }
 
@@ -137,79 +88,28 @@ function getRandomUserAgent() {
 }
 
 /**
- * Behavior tracker to detect and prevent spam patterns
+ * Behavior tracker to detect patterns (Passive)
  */
 class BehaviorTracker {
     constructor() {
-        this.lastMessages = new Map(); // threadID -> last message
-        this.messageFrequency = new Map(); // threadID -> timestamps[]
+        this.lastMessages = new Map();
     }
     
-    /**
-     * Check if message looks like spam
-     * @param {string} threadID
-     * @param {string} message
-     * @returns {boolean}
-     */
-    looksLikeSpam(threadID, message) {
-        // Check for repeated identical messages
-        const lastMsg = this.lastMessages.get(threadID);
-        if (lastMsg === message) {
-            console.log("⚠️  Spam detection: Duplicate message");
-            return true;
-        }
-        
-        // Check message frequency to same thread
-        const timestamps = this.messageFrequency.get(threadID) || [];
-        const recentTimestamps = timestamps.filter(t => t > Date.now() - 10000);
-        
-        if (recentTimestamps.length > 5) {
-            console.log("⚠️  Spam detection: Too many messages to same thread");
-            return true;
-        }
-        
+    looksLikeSpam(_threadID, _message) {
         return false;
     }
     
-    /**
-     * Record a message being sent
-     * @param {string} threadID
-     * @param {string} message
-     */
-    recordMessage(threadID, message) {
-        this.lastMessages.set(threadID, message);
-        
-        const timestamps = this.messageFrequency.get(threadID) || [];
-        timestamps.push(Date.now());
-        
-        // Keep only last 10 timestamps
-        if (timestamps.length > 10) {
-            timestamps.shift();
-        }
-        
-        this.messageFrequency.set(threadID, timestamps);
+    recordMessage(_threadID, _message) {
+        // No-op
     }
     
-    /**
-     * Clean up old data
-     */
     cleanup() {
-        const oneHourAgo = Date.now() - 3600000;
-        
-        for (const [threadID, timestamps] of this.messageFrequency.entries()) {
-            const recent = timestamps.filter(t => t > oneHourAgo);
-            if (recent.length === 0) {
-                this.messageFrequency.delete(threadID);
-                this.lastMessages.delete(threadID);
-            } else {
-                this.messageFrequency.set(threadID, recent);
-            }
-        }
+        // No-op
     }
 }
 
 /**
- * Activity scheduler to simulate human online/offline patterns
+ * Activity scheduler - Always Active
  */
 class ActivityScheduler {
     constructor(_options = {}) {
@@ -230,45 +130,11 @@ class ActivityScheduler {
 }
 
 /**
- * Multi-message handler - waits if user sends multiple messages quickly
+ * Multi-message handler - Immediate processing
  */
 class MultiMessageHandler {
-    constructor() {
-        this.pendingMessages = new Map(); // threadID -> message[]
-        this.timers = new Map(); // threadID -> timeout
-    }
-    
-    /**
-     * Add message to pending queue
-     * @param {string} threadID
-     * @param {Object} message
-     * @param {Function} callback - Called with all messages when ready
-     */
     addMessage(threadID, message, callback) {
-        // Get or create pending array
-        const pending = this.pendingMessages.get(threadID) || [];
-        pending.push(message);
-        this.pendingMessages.set(threadID, pending);
-        
-        // Clear existing timer
-        if (this.timers.has(threadID)) {
-            clearTimeout(this.timers.get(threadID));
-        }
-        
-        // Set new timer - if no new messages in 3 seconds, process all
-        const timer = setTimeout(() => {
-            const messages = this.pendingMessages.get(threadID) || [];
-            this.pendingMessages.delete(threadID);
-            this.timers.delete(threadID);
-            
-            if (messages.length > 1) {
-                console.log(`📚 User sent ${messages.length} messages - reading all before responding`);
-            }
-            
-            callback(messages);
-        }, 3000); // Wait 3 seconds for more messages
-        
-        this.timers.set(threadID, timer);
+        callback([message]);
     }
 }
 
@@ -277,174 +143,32 @@ class MultiMessageHandler {
  */
 class TypoSimulator {
     constructor(frequency = 0.05) {
-        this.frequency = frequency; // 5% chance of typo
-        
-        // Common typo patterns
-        this.commonTypos = {
-            'the': ['teh', 'hte'],
-            'you': ['yuo', 'yu'],
-            'and': ['adn', 'nad'],
-            'are': ['aer', 'rae'],
-            'that': ['taht', 'thta'],
-            'have': ['ahve', 'hvae'],
-            'with': ['wiht', 'wtih'],
-            'this': ['tihs', 'thsi'],
-            'from': ['form', 'frm'],
-            'what': ['waht', 'wht']
-        };
-        
-        // Adjacent keyboard keys for realistic typos
-        this.adjacentKeys = {
-            'a': ['s', 'q', 'w', 'z'],
-            'b': ['v', 'g', 'h', 'n'],
-            'c': ['x', 'd', 'f', 'v'],
-            'd': ['s', 'e', 'r', 'f', 'c', 'x'],
-            'e': ['w', 'r', 'd', 's'],
-            'f': ['d', 'r', 't', 'g', 'v', 'c'],
-            'g': ['f', 't', 'y', 'h', 'b', 'v'],
-            'h': ['g', 'y', 'u', 'j', 'n', 'b'],
-            'i': ['u', 'o', 'k', 'j'],
-            'j': ['h', 'u', 'i', 'k', 'm', 'n'],
-            'k': ['j', 'i', 'o', 'l', 'm'],
-            'l': ['k', 'o', 'p'],
-            'm': ['n', 'j', 'k'],
-            'n': ['b', 'h', 'j', 'm'],
-            'o': ['i', 'p', 'l', 'k'],
-            'p': ['o', 'l'],
-            'q': ['w', 'a'],
-            'r': ['e', 't', 'f', 'd'],
-            's': ['a', 'w', 'e', 'd', 'x', 'z'],
-            't': ['r', 'y', 'g', 'f'],
-            'u': ['y', 'i', 'j', 'h'],
-            'v': ['c', 'f', 'g', 'b'],
-            'w': ['q', 'e', 's', 'a'],
-            'x': ['z', 's', 'd', 'c'],
-            'y': ['t', 'u', 'h', 'g'],
-            'z': ['a', 's', 'x']
-        };
+        this.frequency = frequency;
     }
     
-    /**
-     * Maybe add a typo to the message
-     * @param {string} message
-     * @returns {string}
-     */
     addTypo(message) {
-        // Only add typos occasionally
-        if (Math.random() > this.frequency) {
-            return message;
-        }
-        
-        // Don't add typos to very short messages
-        if (message.length < 10) {
-            return message;
-        }
-        
-        const words = message.split(' ');
-        
-        // Try common typo replacement first
-        for (const word of Object.keys(this.commonTypos)) {
-            const index = words.indexOf(word);
-            if (index !== -1 && Math.random() < 0.7) {
-                const typos = this.commonTypos[word];
-                words[index] = typos[Math.floor(Math.random() * typos.length)];
-                console.log(`✏️  Added typo: "${word}" → "${words[index]}"`);
-                return words.join(' ');
-            }
-        }
-        
-        // Otherwise, swap adjacent characters
-        const wordIndex = Math.floor(Math.random() * words.length);
-        const word = words[wordIndex];
-        
-        if (word.length >= 4) {
-            const charIndex = Math.floor(Math.random() * (word.length - 1));
-            const chars = word.split('');
-            const temp = chars[charIndex];
-            chars[charIndex] = chars[charIndex + 1];
-            chars[charIndex + 1] = temp;
-            words[wordIndex] = chars.join('');
-            console.log(`✏️  Added typo: swapped characters in "${word}"`);
-        }
-        
-        return words.join(' ');
+        return message; // Disabled to ensure command accuracy
     }
 }
 
 /**
- * Cooldown manager - forces breaks after heavy usage
+ * Cooldown manager - Disabled
  */
 class CooldownManager {
-    constructor() {
-        this.messagesInSession = 0;
-        this.sessionStartTime = Date.now();
-        this.isOnCooldown = false;
-        this.cooldownUntil = null;
-        
-        // After 50 messages, take a break
-        this.messagesBeforeCooldown = 50;
-        this.cooldownDuration = 10 * 60 * 1000; // 10 minutes
-    }
+    constructor() {}
     
-    /**
-     * Record a message being sent
-     */
-    recordMessage() {
-        this.messagesInSession++;
-        
-        // Check if we need a cooldown
-        if (this.messagesInSession >= this.messagesBeforeCooldown && !this.isOnCooldown) {
-            this.startCooldown();
-        }
-    }
+    recordMessage() {}
     
-    /**
-     * Start cooldown period
-     */
-    startCooldown() {
-        this.isOnCooldown = true;
-        this.cooldownUntil = Date.now() + this.cooldownDuration;
-        
-        console.log(`\n${"=".repeat(60)}`);
-        console.log(`⏸️  COOLDOWN: Bot sent ${this.messagesInSession} messages`);
-        console.log(`   Taking a ${this.cooldownDuration / 60000} minute break...`);
-        console.log(`   Will resume at: ${new Date(this.cooldownUntil).toLocaleTimeString()}`);
-        console.log(`${"=".repeat(60)}\n`);
-        
-        // Auto-resume after cooldown
-        setTimeout(() => {
-            this.endCooldown();
-        }, this.cooldownDuration);
-    }
+    startCooldown() {}
     
-    /**
-     * End cooldown period
-     */
-    endCooldown() {
-        this.isOnCooldown = false;
-        this.cooldownUntil = null;
-        this.messagesInSession = 0;
-        console.log("✅ Cooldown complete - bot is back online");
-    }
+    endCooldown() {}
     
-    /**
-     * Check if on cooldown
-     * @returns {boolean}
-     */
     onCooldown() {
-        if (this.isOnCooldown && Date.now() >= this.cooldownUntil) {
-            this.endCooldown();
-        }
-        return this.isOnCooldown;
+        return false;
     }
     
-    /**
-     * Get time remaining in cooldown
-     * @returns {number} Milliseconds
-     */
     timeRemaining() {
-        if (!this.isOnCooldown) return 0;
-        return Math.max(0, this.cooldownUntil - Date.now());
+        return 0;
     }
 }
 

@@ -20,8 +20,6 @@ class BotManager extends EventEmitter {
             updatePresence: true,
             autoMarkDelivery: true,
             autoMarkRead: true,
-            cookieRefresh: true,
-            cookieRefreshInterval: 1200000, // 20 minutes
             ...options
         };
         
@@ -125,11 +123,6 @@ class BotManager extends EventEmitter {
         // Stop listener
         if (botInfo.listener && typeof botInfo.listener.stop === 'function') {
             botInfo.listener.stop();
-        }
-        
-        // Stop cookie refresh
-        if (botInfo.api && typeof botInfo.api.stopCookieRefresh === 'function') {
-            botInfo.api.stopCookieRefresh();
         }
         
         if (botInfo.status === 'online') {

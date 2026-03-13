@@ -9,18 +9,6 @@ module.exports = function (defaultFuncs, api, ctx) {
         ctx.globalOptions.autoReconnect = false;
       }
 
-      // Stop cookie refresh manager first (stops MQTT pings and health checks)
-      if (ctx.cookieRefreshManager) {
-        try {
-          utils.log("logout", "Stopping cookie refresh manager...");
-          ctx.cookieRefreshManager.stop();
-          ctx.cookieRefreshManager = null;
-          utils.log("logout", "Cookie refresh manager stopped.");
-        } catch (stopErr) {
-          utils.error("logout", "Error stopping refresh manager:", stopErr.message);
-        }
-      }
-
       // Clear presence interval
       if (ctx.presenceInterval) {
         clearInterval(ctx.presenceInterval);

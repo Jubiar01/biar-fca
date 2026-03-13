@@ -116,6 +116,7 @@ function handleAccountBlockDetection(error, ctx) {
                     ctx.mqttClient.end(true);
                     ctx.mqttClient = null;
                 } catch (e) {
+                    // Ignore disconnection errors during cleanup
                 }
             }
             
@@ -228,9 +229,8 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
         const sessionID = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER) + 1;
         
         const domain = "wss://edge-chat.messenger.com/chat";
-        const host = ctx.region 
-            ? `${domain}?region=${ctx.region.toLowerCase()}&sid=${sessionID}&cid=${ctx.clientID}`
-            : `${domain}?sid=${sessionID}&cid=${ctx.clientID}`;
+        // Always use standard connection string without forcing region
+        const host = `${domain}?sid=${sessionID}&cid=${ctx.clientID}`;
 
         utils.log("Connecting to MQTT...", host);
 
@@ -450,14 +450,36 @@ async function listenMqtt(defaultFuncs, api, ctx, globalCallback) {
 
         mqttClient.on('message', async (topic, message, _packet) => {
             try {
+                const msgString = message.toString();
+                utils.log(`[DEBUG-MQTT] Event fired! Topic: ${topic} | Payload size: ${msgString.length}`);
+                
                 ctx.lastMessageTime = Date.now();
                 ctx.messageCount++;
 
-                const jsonMessage = JSON.parse(message.toString());
+                const jsonMessage = JSON.parse(msgString);
+                
+                // Log the full payload for inspection
+                utils.log(`[DEBUG-MQTT] Payload: ${JSON.stringify(jsonMessage, null, 2)}`);
+                
+                if (topic === "/t_ms") {
+                     // Log deltas summary
+                     if (jsonMessage.deltas) {
+                         utils.log(`[DEBUG-MQTT] Received ${jsonMessage.deltas.length} deltas`);
+                         jsonMessage.deltas.forEach((d, i) => {
+                             utils.log(`[DEBUG-MQTT] Delta ${i}: class=${d.class}, type=${d.type}`);
+                         });
+                     }
+                }
                 
                 if (topic === "/t_ms") {
                     if (jsonMessage.lastIssuedSeqId) {
                         ctx.lastSeqId = parseInt(jsonMessage.lastIssuedSeqId, 10);
+                    }
+                    
+                    // Critical fix: Update syncToken to receive new messages
+                    if (jsonMessage.syncToken) {
+                        ctx.syncToken = jsonMessage.syncToken;
+                        ctx.lastSeqId = jsonMessage.firstDeltaSeqId; // Also update seqID from this packet if present
                     }
 
                     if (jsonMessage.deltas && Array.isArray(jsonMessage.deltas)) {
@@ -555,7 +577,13 @@ module.exports = (defaultFuncs, api, ctx) => {
                 throw new utils.ValidationError("Sequence ID not found in response");
             }
 
-            utils.log(`✅ Sequence ID retrieved: ${ctx.lastSeqId}`);
+            // Force fresh sync if sequence ID is suspiciously low (invalid stub)
+            if (ctx.lastSeqId < 100) {
+                utils.warn("getSeqID", `Received low sequence ID (${ctx.lastSeqId}). Resetting to force fresh sync.`);
+                ctx.lastSeqId = null;
+            }
+
+            utils.log(`✅ Sequence ID retrieved: ${ctx.lastSeqId || "(fresh sync)"}`);
             
             accountBlockTracker.consecutiveFailures = 0;
 

@@ -94,6 +94,6 @@
     "typescript": "^5.4.5"
   },
   "engines": {
-    "node": ">=22.x"
+    "node": ">=20.x"
   }
 }

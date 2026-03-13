@@ -103,6 +103,9 @@ module.exports = (defaultFuncs, api, ctx) => {
   }
 
   return async (msg, threadID, replyToMessage, isSingleUser) => {
+    if (ctx.globalOptions.logging) {
+        utils.log(`[DEBUG-SEND] Request: threadID=${threadID}, isSingleUser=${isSingleUser}, msgType=${utils.getType(msg)}`);
+    }
     const msgType = utils.getType(msg);
     const threadIDType = utils.getType(threadID);
     const messageIDType = utils.getType(replyToMessage);
@@ -146,7 +149,7 @@ module.exports = (defaultFuncs, api, ctx) => {
           // If we can't get thread info, default to single user for personal chats
           // Groups usually have longer numeric IDs
           const threadIDStr = threadID.toString();
-          isSingleUser = threadIDStr.length < 16;
+          isSingleUser = threadIDStr.length < 19;
           utils.warn("sendMessage", "Could not determine thread type, guessing based on ID length");
         }
       }
@@ -254,7 +257,51 @@ module.exports = (defaultFuncs, api, ctx) => {
         form["profile_xmd[" + i + "][type]"] = "p";
       }
     }
-    const result = await sendContent(form, threadID, isSingleUser, messageAndOTID);
-    return result;
+    
+    // Try sending with the determined thread type
+    try {
+      const result = await sendContent(form, threadID, isSingleUser, messageAndOTID);
+      
+      // If result is null, it means we caught a specific error (like 1545012) inside sendContent
+      // and we should treat this as a failure to trigger retry
+      if (result === null) {
+        throw new Error("Handled error (1545012/transient)");
+      }
+      
+      return result;
+    } catch (err) {
+      // Retry logic for ANY error (including 1545012, 1545003, etc.)
+      // This handles cases where we incorrectly guessed User vs Group
+      utils.warn(`[DEBUG-SEND] Send FAILED (${err.message}). RETRYING with swapped thread type...`);
+      utils.warn(`[DEBUG-SEND] Old isSingleUser: ${isSingleUser} -> New isSingleUser: ${!isSingleUser}`);
+      
+      // Flip the flag
+      isSingleUser = !isSingleUser;
+      
+      // Clean up previous form fields to avoid conflicts
+      delete form["specific_to_list[0]"];
+      delete form["specific_to_list[1]"];
+      delete form["other_user_fbid"];
+      delete form["thread_fbid"];
+      
+      // Update cache to reflect the new assumption
+      if (ctx.threadTypeCache) {
+        ctx.threadTypeCache[threadID] = !isSingleUser; // isGroup = !isSingleUser
+      }
+      
+      // Retry sending
+      try {
+        const retryResult = await sendContent(form, threadID, isSingleUser, messageAndOTID);
+        if (retryResult === null) throw new Error("Retry failed with handled error");
+        return retryResult;
+      } catch (retryErr) {
+        utils.error("sendMessage [HTTP]", "Retry failed:", retryErr.message);
+        // Throw the original error or a generic one if the original was "Handled error"
+        if (err.message === "Handled error (1545012/transient)") {
+             throw new Error("SendMessage failed (likely 1545012) even after retry.");
+        }
+        throw err;
+      }
+    }
   };
 };

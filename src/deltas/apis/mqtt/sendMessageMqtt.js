@@ -196,7 +196,7 @@ module.exports = (defaultFuncs, api, ctx) => {
       }
 
       ctx.reqCallbacks[messageID] = {
-        callback: (err, result) => {
+        callback: (err, _result) => {
           clearTimeout(responseTimeout);
           delete ctx.reqCallbacks[messageID];
 

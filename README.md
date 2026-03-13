@@ -102,7 +102,7 @@ When you use `biar-fca`, you automatically get:
 - ⏱️ **Response Time** - 50-200ms with protection layers
 - 🆔 **Realistic Device IDs** - Generated from system hardware
 - 🌍 **Random User Agents** - Latest Chrome/Edge configurations
-- 🔄 **Auto Cookie Refresh** - Fresh cookies every 20min + MQTT keep-alive every 30s
+- 🔄 **Automatic Presence** - Maintain realistic presence and connection health
 
 ### 📖 Using Advanced Protection
 
@@ -113,21 +113,15 @@ login(credentials, {
   advancedProtection: true,      // Default: true (always enabled)
   autoRotateSession: true,       // Default: true (6hr rotation)
   randomUserAgent: true,         // Default: true (realistic UAs)
-  cookieRefresh: true,           // Default: true (auto-refresh every 20min)
-  cookieRefreshInterval: 1200000,// Default: 1200000ms (20 minutes)
   updatePresence: true,          // Maintain realistic presence
   autoMarkDelivery: true,        // Realistic delivery receipts
   autoMarkRead: true             // Realistic read receipts
 }, (err, api) => {
   // Your bot code here
   
-  // Check protection stats (includes cookie refresh stats)
+  // Check protection stats
   const stats = api.getProtectionStats();
   console.log('Protection Status:', stats);
-  
-  // Get cookie refresh stats
-  const cookieStats = api.getCookieRefreshStats();
-  console.log('Cookie Refresh:', cookieStats);
 });
 ```
 
@@ -164,96 +158,6 @@ login(credentials, {
 ```
 
 Then run: `node bot.js`
-
----
-
-## 🔄 Keep-Alive System (v3.6.6+)
-
-**ENHANCED!** Dual keep-alive system ensures your bot stays online indefinitely!
-
-### How It Works
-
-The Keep-Alive System uses two complementary mechanisms:
-
-**1. Cookie Refresh (Every 20 minutes)**
-- Refreshes authentication cookies with fresh values
-- Updates session tokens (DTSG) for valid authentication
-- Maintains authentication validity
-- Prevents session expiration
-
-**2. MQTT Keep-Alive Pings (Every 30 seconds)**
-- Sends presence updates through MQTT connection
-- Keeps WebSocket connection active
-- Prevents connection timeout
-- Monitors connection health with failure tracking
-
-### Configuration
-
-```js
-login(credentials, {
-  cookieRefresh: true,               // Enable/disable (default: true)
-  cookieRefreshInterval: 1200000,    // Interval in ms (default: 1200000 = 20min)
-}, (err, api) => {
-  // Your bot is now maintaining fresh cookies automatically every 20 minutes!
-});
-```
-
-### API Methods
-
-```js
-// Get comprehensive keep-alive statistics
-const stats = api.getCookieRefreshStats();
-console.log(stats);
-// {
-//   enabled: true,
-//   refreshCount: 12,
-//   failureCount: 0,
-//   lastRefresh: "2025-10-31T12:34:56.789Z",
-//   timeSinceLastRefresh: 234567,
-//   refreshInterval: 1200000,
-//   mqttKeepAlive: {
-//     enabled: true,
-//     pingCount: 240,
-//     pingFailures: 0,
-//     lastPing: "2025-10-31T12:34:55.123Z",
-//     timeSinceLastPing: 1234,
-//     pingInterval: 30000
-//   }
-// }
-
-// Control cookie refresh
-api.stopCookieRefresh();                  // Stop auto-refresh
-api.startCookieRefresh();                 // Start auto-refresh
-api.setCookieRefreshInterval(1800000);    // Change to 30 minutes
-api.setCookieRefreshInterval(600000);     // Change to 10 minutes
-```
-
-### Benefits
-
-✅ **Indefinite Uptime** - Bot stays online for days/weeks without disconnecting  
-✅ **Dual Protection** - Both HTTP and WebSocket layers maintained  
-✅ **Prevents Session Expiration** - Fresh cookies keep authentication valid  
-✅ **Prevents Connection Timeout** - MQTT pings keep WebSocket active  
-✅ **Automatic & Silent** - Works in background without interruption  
-✅ **Configurable** - Adjust intervals to suit your needs  
-✅ **Comprehensive Stats** - Track both cookie refresh and MQTT ping health  
-✅ **Anti-Detection** - Cookie refresh rotates through 4 different endpoints  
-✅ **Token Updates** - Automatically refreshes DTSG tokens for valid auth  
-✅ **Smart Logging** - Detailed logs without spam (MQTT logs every 5 minutes)  
-✅ **Failure Recovery** - Automatic retry and error handling  
-
-### Why This Works
-
-**Cookie Refresh (20 minutes):**
-- Optimal balance between keeping session alive and avoiding rate limits
-- Mimics natural human browsing patterns
-- Reduces network overhead while maintaining validity
-
-**MQTT Keep-Alive (30 seconds):**
-- Prevents WebSocket idle timeout
-- More frequent than cookie refresh to maintain active connection
-- Lightweight presence updates don't trigger rate limits
-- Complements cookie refresh for maximum uptime
 
 ---
 
@@ -310,8 +214,6 @@ login(credentials, {
   advancedProtection: true,      // Enable anti-detection features
   autoRotateSession: true,       // Auto-rotate session fingerprints
   randomUserAgent: true,         // Use realistic random user agents
-  cookieRefresh: true,           // Auto-refresh cookies every 20min (NEW!)
-  cookieRefreshInterval: 1200000,// Refresh interval: 20 minutes (default)
   autoMarkDelivery: true,        // Realistic message behavior
   autoMarkRead: true             // Realistic read behavior
 }, async (err, api) => {

@@ -4,6 +4,9 @@ const utils = require('../../../../utils'); // Changed from @utils to relative p
 
 
 function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
+  // Debug log to confirm parseDelta is called
+  // utils.log(`[DEBUG-PARSE] Parsing delta class: ${v.delta.class}`);
+
   if (v.delta.class == "NewMessage") {
 
     if (ctx.globalOptions.pageID && ctx.globalOptions.pageID != v.queue) return;
@@ -56,6 +59,10 @@ function parseDelta(defaultFuncs, api, ctx, globalCallback, v) {
 
   if (v.delta.class == "ClientPayload") {
     const clientPayload = utils.decodeClientPayload(v.delta.payload);
+    
+    // Always log for debugging
+    utils.log(`[DEBUG-VALUE] Decoded ClientPayload: ${JSON.stringify(clientPayload, null, 2)}`);
+    
     if (clientPayload && clientPayload.deltas) {
       for (const i in clientPayload.deltas) {
         const delta = clientPayload.deltas[i];

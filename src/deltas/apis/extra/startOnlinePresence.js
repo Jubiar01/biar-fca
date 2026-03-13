@@ -14,8 +14,6 @@ const ACTIONS = [
     'https://www.facebook.com/marketplace'
 ];
 
-const getRandomAction = () => ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-
 const facebookHeaders = {
     'authority': 'www.facebook.com',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
