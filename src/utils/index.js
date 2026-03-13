@@ -7,6 +7,7 @@ const clients = require("./clients");
 const constants = require("./constants");
 const formatters = require("./formatters"); 
 const antiDetection = require("./antiDetection");
+const userAgents = require("./user-agents");
 const errors = require("./errors");
 const cheerio = require("cheerio");
 const util = require("util");

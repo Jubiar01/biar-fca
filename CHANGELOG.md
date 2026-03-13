@@ -4,7 +4,7 @@ All notable changes to **biar-fca** will be documented in this file.
 
 ---
 
-## [3.9.4] - 2026-03-13
+## [3.9.5] - 2026-03-13
 
 ### 🛡️ Advanced Anti-Detection & MQTT Reliability
 

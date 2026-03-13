@@ -22,6 +22,7 @@ coverage/
 *.swp
 *.swo
 *~
+biar-fca-bot/
 
 # Documentation (keep README.md and LICENSE only)
 NPM_PUBLISH_GUIDE.md
